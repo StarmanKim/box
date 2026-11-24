@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>별의 색과 표면 온도 탐구 시뮬레이션 · 중2 과학 Ⅷ. 별과 우주</title>
+<style>
+  :root{
+    --bg:#090e20;
+    --surface-1:#141c36;
+    --surface-2:#1b2547;
+    --surface-3:#243058;
+    --sky:#060a18;
+    --grid:#2a3560;
+    --border:#2c3864;
+    --text-primary:#f2f3f8;
+    --text-secondary:#c3c8dc;
+    --text-muted:#9098b6;
+    --accent:#ffd166;
+    --accent-ink:#1d1600;
+    --series-1:#3987e5;
+    --series-2:#d95926;
+    --series-3:#199e70;
+    --good:#3fb97a;
+    --bad:#f0715f;
+    --radius:14px;
+    --font:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans KR","Nanum Gothic","NanumGothic",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{font-size:17px}
+  @media (min-width:1400px){html{font-size:18px}}
+  body{
+    margin:0; font-family:var(--font); color:var(--text-primary); line-height:1.6;
+    background:
+      radial-gradient(1200px 600px at 85% -10%, #1d2a5c 0%, transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, #1a1f4a 0%, transparent 60%),
+      var(--bg);
+    min-height:100vh;
+  }
+  .wrap{max-width:1360px; margin:0 auto; padding:16px 20px 40px}
+  header.top{display:flex; gap:16px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; margin-bottom:12px}
+  .title-block h1{margin:0; font-size:1.7rem; letter-spacing:-0.02em}
+  .title-block h1 .star{color:var(--accent)}
+  .crumb{color:var(--text-secondary); font-size:.9rem; margin-top:2px}
+  .goal{display:inline-flex; gap:8px; align-items:center; margin-top:8px; padding:6px 12px; border-radius:999px;
+        background:var(--surface-2); border:1px solid var(--border); font-size:.92rem}
+  .goal b{color:var(--accent)}
+  .top-actions{display:flex; gap:8px; flex-wrap:wrap}
+
+  nav.tabs{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 16px; padding:6px; background:var(--surface-1);
+           border:1px solid var(--border); border-radius:var(--radius)}
+  nav.tabs button{flex:1 1 180px; font:inherit; font-size:.98rem; font-weight:700; color:var(--text-secondary);
+    background:transparent; border:0; border-radius:10px; padding:10px 12px; cursor:pointer; text-align:center}
+  nav.tabs button:hover{background:var(--surface-2); color:var(--text-primary)}
+  nav.tabs button[aria-selected="true"]{background:var(--accent); color:var(--accent-ink)}
+  nav.tabs button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, .opt:focus-visible{
+    outline:3px solid var(--accent); outline-offset:2px}
+
+  .panel[hidden]{display:none}
+  .intro{display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:16px; margin-bottom:16px}
+  @media (max-width:980px){.intro{grid-template-columns:1fr}}
+  .question{font-size:1.3rem; font-weight:800; margin:0 0 6px; letter-spacing:-0.01em}
+  .question .q-badge{display:inline-block; font-size:.8rem; font-weight:700; color:var(--accent-ink); background:var(--accent);
+    border-radius:6px; padding:2px 8px; margin-right:8px; vertical-align:middle}
+  .card{background:var(--surface-1); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px}
+  .card h3{margin:0 0 10px; font-size:1.05rem; display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .card h3 .tag{font-size:.75rem; font-weight:700; color:var(--text-secondary); background:var(--surface-3);
+    border-radius:6px; padding:1px 8px}
+  .card p{margin:.3em 0}
+  .steps{margin:0; padding-left:1.3em; color:var(--text-secondary)}
+  .steps li{margin:.2em 0}
+  .steps b{color:var(--text-primary)}
+  .muted{color:var(--text-muted)}
+  .small{font-size:.86rem}
+  .note{font-size:.84rem; color:var(--text-muted); margin-top:8px}
+  .grid2{display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:16px; align-items:start}
+  .grid2.even{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  @media (max-width:980px){.grid2, .grid2.even{grid-template-columns:1fr}}
+
+  canvas{display:block; width:100%; border-radius:10px}
+  canvas.sky{background:var(--sky)}
+  .h-380{height:380px} .h-300{height:300px} .h-280{height:280px} .h-260{height:260px}
+  .h-240{height:240px} .h-220{height:220px} .h-200{height:200px} .h-180{height:180px} .h-320{height:320px}
+
+  .controls{display:flex; flex-direction:column; gap:12px; margin-top:12px}
+  .slider-row{display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center}
+  .slider-row label{font-weight:700; white-space:nowrap}
+  .slider-row output{min-width:7.5em; text-align:right; font-weight:800; font-variant-numeric:tabular-nums}
+  .swatch{display:inline-block; width:12px; height:12px; border-radius:50%; vertical-align:middle; margin-right:6px}
+  .sw-1{background:var(--series-1)} .sw-2{background:var(--series-2)} .sw-3{background:var(--series-3)}
+  .sw-gold{background:var(--accent)}
+  input[type=range]{-webkit-appearance:none; appearance:none; width:100%; height:30px; background:transparent; cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:8px; border-radius:8px; background:var(--surface-3)}
+  input[type=range]::-moz-range-track{height:8px; border-radius:8px; background:var(--surface-3)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:26px; height:26px; margin-top:-9px; border-radius:50%;
+    background:var(--accent); border:3px solid #fff8e0; box-shadow:0 0 10px rgba(255,209,102,.6)}
+  input[type=range]::-moz-range-thumb{width:22px; height:22px; border-radius:50%; background:var(--accent); border:3px solid #fff8e0}
+  input[type=range].r-1::-webkit-slider-thumb{background:var(--series-1); box-shadow:0 0 10px rgba(57,135,229,.7)}
+  input[type=range].r-1::-moz-range-thumb{background:var(--series-1)}
+  input[type=range].r-2::-webkit-slider-thumb{background:var(--series-2); box-shadow:0 0 10px rgba(217,89,38,.7)}
+  input[type=range].r-2::-moz-range-thumb{background:var(--series-2)}
+
+  .btn-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+  .btn{font:inherit; font-size:.92rem; font-weight:700; color:var(--text-primary); background:var(--surface-3);
+       border:1px solid var(--border); border-radius:999px; padding:7px 14px; cursor:pointer; line-height:1.3}
+  .btn:hover{background:#2e3b6c}
+  .btn.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
+  .btn.primary:hover{background:#ffdb85}
+  .btn.ghost{background:transparent}
+  .btn[aria-pressed="true"]{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
+  .check{display:inline-flex; align-items:center; gap:6px; font-weight:700; cursor:pointer; user-select:none}
+  .check input{width:18px; height:18px; accent-color:var(--accent)}
+
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:12px}
+  .stat{background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:10px 12px}
+  .stat .lab{font-size:.82rem; color:var(--text-secondary)}
+  .stat .val{font-size:1.5rem; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.25}
+  .stat .sub{font-size:.8rem; color:var(--text-muted)}
+  .stat.hl{border-color:var(--accent)}
+  .stat.hl .val{color:var(--accent)}
+
+  table.data{width:100%; border-collapse:collapse; font-size:.92rem; font-variant-numeric:tabular-nums}
+  table.data th, table.data td{padding:6px 8px; border-bottom:1px solid var(--grid); text-align:center}
+  table.data th{color:var(--text-secondary); font-weight:700; background:var(--surface-2)}
+  table.data td.l, table.data th.l{text-align:left}
+  table.data input{width:6em; font:inherit; color:var(--text-primary); background:var(--sky); border:1px solid var(--border);
+    border-radius:6px; padding:3px 6px; text-align:right}
+  .table-scroll{overflow-x:auto}
+
+  details.learned{margin-top:16px; background:linear-gradient(180deg, rgba(255,209,102,.10), rgba(255,209,102,.03));
+    border:1px solid rgba(255,209,102,.45); border-radius:var(--radius); padding:12px 16px}
+  details.learned summary{cursor:pointer; font-weight:800; color:var(--accent); font-size:1.02rem}
+  details.learned[open] summary{margin-bottom:8px}
+  details.learned ul{margin:.2em 0; padding-left:1.3em}
+  details.learned li{margin:.25em 0}
+  .predict{border-left:4px solid var(--accent); background:var(--surface-2); border-radius:8px; padding:8px 12px; margin-top:10px; font-size:.95rem}
+  .predict b{color:var(--accent)}
+  .readout{margin-top:10px; padding:10px 14px; border-radius:10px; background:var(--surface-2); border:1px solid var(--border); font-size:1rem}
+  .readout strong{color:var(--accent)}
+  .formula{display:inline-block; padding:2px 8px; border-radius:6px; background:var(--surface-3); font-weight:700}
+
+  /* 빛 알갱이 상자 */
+  .dotboxes{display:grid; grid-template-columns:1fr auto 1fr; gap:12px; align-items:center}
+  @media (max-width:640px){.dotboxes{grid-template-columns:1fr}}
+  .dotbox{background:var(--sky); border:1px solid var(--border); border-radius:12px; padding:10px}
+  .dotbox .mag-pick{display:grid; grid-template-columns:repeat(3,1fr); gap:4px; margin:0 auto 8px; max-width:260px}
+  .dotbox .mag-pick button{font:inherit; font-size:.85rem; font-weight:700; white-space:nowrap; padding:4px 0; border-radius:8px;
+    border:1px solid var(--border); background:var(--surface-2); color:var(--text-secondary); cursor:pointer}
+  .dotbox .mag-pick button[aria-pressed="true"]{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
+  .dots{display:grid; grid-template-columns:repeat(10,1fr); gap:3px; aspect-ratio:1/1; max-width:260px; margin:0 auto}
+  .dots span{border-radius:50%; background:#1a2246; transform:scale(.55)}
+  .dots span.on{background:radial-gradient(circle, #fffbea 0%, #ffd166 55%, rgba(255,209,102,.0) 100%); transform:scale(1)}
+  .dots span.part{background:radial-gradient(circle, #fffbea 0%, #ffd166 55%, rgba(255,209,102,.0) 100%)}
+  .dotbox .cap{text-align:center; margin-top:8px; font-weight:700}
+  .dotbox .cap .n{color:var(--accent); font-size:1.2rem}
+  .vs{text-align:center; font-weight:800; font-size:1.05rem; min-width:8em}
+  .vs .big{display:block; font-size:1.8rem; color:var(--accent)}
+
+  /* 별 카드 (활동 4) */
+  .star-cards{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px}
+  @media (max-width:640px){.star-cards{grid-template-columns:1fr}}
+  .scard{background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:12px}
+  .scard .head{display:flex; align-items:center; gap:8px; margin-bottom:6px}
+  .scard select{font:inherit; font-weight:800; color:var(--text-primary); background:var(--surface-3); border:1px solid var(--border);
+    border-radius:8px; padding:4px 8px}
+  .scard .kv{display:grid; grid-template-columns:auto 1fr; gap:2px 10px; font-size:.92rem; font-variant-numeric:tabular-nums}
+  .scard .kv .k{color:var(--text-secondary)}
+  .scard .kv .v{font-weight:800; text-align:right; white-space:nowrap}
+  .scard .kv .v .lock{font-weight:400}
+  .scard .rel{margin-top:8px; padding:6px 10px; border-radius:8px; background:var(--sky); font-size:.9rem; font-weight:700}
+  .scard .rel .sym{color:var(--accent); font-size:1.05rem}
+  .lock{font-size:.75rem; color:var(--text-muted); font-weight:400}
+  .banner{margin-top:12px; padding:10px 14px; border-radius:10px; border:1px solid var(--accent); background:rgba(255,209,102,.10); font-weight:700}
+  .banner[hidden]{display:none}
+
+  /* 퀴즈 */
+  .quiz-wrap{max-width:900px; margin:0 auto}
+  .q-progress{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px}
+  .q-progress button{font:inherit; font-size:.85rem; font-weight:800; width:2.4em; height:2.4em; border-radius:50%; cursor:pointer;
+    border:2px solid var(--border); background:var(--surface-2); color:var(--text-secondary)}
+  .q-progress button.cur{border-color:var(--accent); color:var(--text-primary)}
+  .q-progress button.ok{background:rgba(63,185,122,.25); border-color:var(--good); color:var(--text-primary)}
+  .q-progress button.ng{background:rgba(240,113,95,.22); border-color:var(--bad); color:var(--text-primary)}
+  .q-cat{font-size:.85rem; font-weight:700; color:var(--accent)}
+  .q-text{font-size:1.25rem; font-weight:800; margin:4px 0 14px}
+  .opts{display:grid; gap:10px}
+  .opt{display:flex; gap:12px; align-items:center; text-align:left; font:inherit; font-size:1.05rem; color:var(--text-primary);
+    background:var(--surface-2); border:2px solid var(--border); border-radius:12px; padding:12px 14px; cursor:pointer}
+  .opt:hover:not([disabled]){border-color:#4a5a9a}
+  .opt .no{flex:0 0 auto; width:1.9em; height:1.9em; border-radius:50%; background:var(--surface-3); display:grid; place-items:center; font-weight:800}
+  .opt[disabled]{cursor:default}
+  .opt.correct{border-color:var(--good); background:rgba(63,185,122,.15)}
+  .opt.wrong{border-color:var(--bad); background:rgba(240,113,95,.12)}
+  .opt .mark{margin-left:auto; font-weight:800}
+  .feedback{margin-top:14px; padding:12px 14px; border-radius:12px; background:var(--surface-2); border-left:5px solid var(--good)}
+  .feedback.ng{border-left-color:var(--bad)}
+  .feedback .res{font-weight:800; margin-bottom:4px}
+  .q-nav{display:flex; justify-content:space-between; gap:8px; margin-top:16px; flex-wrap:wrap}
+  textarea.essay{width:100%; min-height:110px; font:inherit; color:var(--text-primary); background:var(--sky); border:1px solid var(--border);
+    border-radius:10px; padding:10px}
+  .score-big{font-size:2.4rem; font-weight:900; color:var(--accent)}
+  .summary-list{margin:.3em 0; padding-left:1.3em}
+  .summary-list li{margin:.35em 0}
+
+  /* 툴팁, 모달 */
+  #tooltip{position:fixed; z-index:50; pointer-events:none; background:#0b1022; color:var(--text-primary); border:1px solid var(--border);
+    border-radius:8px; padding:6px 10px; font-size:.86rem; box-shadow:0 6px 18px rgba(0,0,0,.5); max-width:280px}
+  #tooltip[hidden]{display:none}
+  .modal-back{position:fixed; inset:0; background:rgba(3,6,16,.72); z-index:60; display:flex; align-items:flex-start; justify-content:center; padding:30px 14px; overflow:auto}
+  .modal-back[hidden]{display:none}
+  .modal{background:var(--surface-1); border:1px solid var(--border); border-radius:16px; max-width:920px; width:100%; padding:20px 24px; position:relative}
+  .modal h2{margin:0 0 8px}
+  .modal h4{margin:16px 0 6px; color:var(--accent)}
+  .modal ul{margin:.2em 0; padding-left:1.3em}
+  .modal li{margin:.2em 0}
+  .modal .close{position:absolute; top:12px; right:12px}
+  footer{margin-top:24px; color:var(--text-muted); font-size:.82rem; text-align:center}
+  .sr-only{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
+  /* 이 파일 전용 */
+  .star-btns{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
+  .star-btns .btn{font-size:.86rem; padding:5px 11px}
+  .cls-strip{display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-top:10px}
+  @media (max-width:640px){.cls-strip{grid-template-columns:repeat(4,1fr)}}
+  .cls{font:inherit; color:var(--text-primary); background:var(--surface-2); border:2px solid var(--border); border-radius:10px; padding:6px 4px; cursor:pointer; text-align:center; line-height:1.3}
+  .cls .sw{display:block; height:10px; border-radius:5px; margin:4px 6px}
+  .cls .l{font-weight:800; font-size:1.05rem}
+  .cls .r{font-size:.74rem; color:var(--text-secondary)}
+  .cls .n{font-size:.78rem; font-weight:700}
+  .cls[aria-pressed="true"]{border-color:var(--accent); background:var(--surface-3)}
+  .cls:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+  .h-340{height:340px} .h-360{height:360px} .h-400{height:400px}
+  .vote{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px}
+  .vote .btn{font-size:1rem; padding:10px 14px; border-radius:12px}
+  .gamebar{display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:8px}
+  .chip{display:inline-block; padding:2px 10px; border-radius:999px; background:var(--surface-3); font-size:.85rem; font-weight:700}
+  .misc{border-left:4px solid var(--bad); background:rgba(240,113,95,.10); border-radius:8px; padding:8px 12px; margin-top:10px; font-size:.95rem}
+  .misc b{color:var(--bad)}
+  .okbox{border-left:4px solid var(--good); background:rgba(63,185,122,.10); border-radius:8px; padding:8px 12px; margin-top:10px; font-size:.95rem}
+  .okbox b{color:var(--good)}
+</style>
+</head>
+<body>
+<noscript><p style="padding:20px">이 시뮬레이션은 자바스크립트가 필요합니다. 브라우저 설정에서 자바스크립트를 켜 주세요.</p></noscript>
+<div class="wrap">
+  <header class="top">
+    <div class="title-block">
+      <h1><span class="star">★</span> 별의 색과 표면 온도 탐구 시뮬레이션</h1>
+      <div class="crumb">중학교 2학년 과학 · Ⅷ. 별과 우주 › 1. 별 › 별의 색이 다양하게 나타나는 까닭은 무엇일까? (교과서 284~285쪽)</div>
+      <div class="goal"><b>이번 시간에 나는!</b> 별의 색과 표면 온도의 관계를 설명할 수 있다.</div>
+    </div>
+    <div class="top-actions">
+      <button class="btn" id="btnTeacher" type="button">교사용 안내</button>
+      <button class="btn" id="btnFull" type="button">전체 화면</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="활동 선택">
+    <button role="tab" id="tab-1" aria-controls="p1" aria-selected="true" data-tab="1">① 달궈지는 열선의 색</button>
+    <button role="tab" id="tab-2" aria-controls="p2" aria-selected="false" data-tab="2">② 별의 색과 표면 온도</button>
+    <button role="tab" id="tab-3" aria-controls="p3" aria-selected="false" data-tab="3">③ 색으로 온도 비교하기</button>
+    <button role="tab" id="tab-4" aria-controls="p4" aria-selected="false" data-tab="4">④ 개념 확인 문제</button>
+  </nav>
+
+  <!-- ============ 활동 1 ============ -->
+  <section class="panel" id="p1" role="tabpanel" aria-labelledby="tab-1">
+    <div class="intro">
+      <div class="card">
+        <p class="question"><span class="q-badge">탐구 질문</span>뜨거워지면 물체의 색은 어떻게 달라질까?</p>
+        <p class="small" style="color:var(--text-secondary)">전기난로를 켜면 안쪽 열선이 처음에는 붉은색이었다가 온도가 높아지면서 노란색으로 바뀌어요. 빛을 내는 물체는 <b>온도에 따라 색이 달라져요</b>.</p>
+        <ol class="steps">
+          <li><b>전압 슬라이더</b>를 천천히 올려 열선의 색 변화를 관찰해 보세요.</li>
+          <li>색이 바뀔 때마다 <b>[기록하기]</b>를 눌러 표에 남겨 보세요.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>생각해 보기</h3>
+        <p class="small muted">전구 필라멘트의 전압을 조금씩 높이면 어떤 색 순서로 변할까요?</p>
+        <div class="predict">🤔 <b>예상해 보기</b> — 가장 낮은 전압에서 가장 높은 전압까지, 색이 바뀌는 <b>순서</b>를 먼저 말해 본 뒤 슬라이더로 확인해 보세요.</div>
+      </div>
+    </div>
+
+    <div class="grid2 even">
+      <div class="card">
+        <h3>전기난로의 열선 (확대 그림)</h3>
+        <canvas id="cvHeat" class="h-260" role="img" aria-label="전압에 따라 색이 달라지는 전기난로 열선"></canvas>
+        <div class="controls">
+          <div class="slider-row">
+            <label for="vHeat">전원 장치 전압</label>
+            <input type="range" id="vHeat" min="0" max="10" step="0.1" value="0">
+            <output id="vHeatOut" for="vHeat">0 / 10</output>
+          </div>
+        </div>
+        <div class="stats" aria-live="polite">
+          <div class="stat"><div class="lab">열선의 온도</div><div class="val" id="hTemp">-</div><div class="sub">전압이 높을수록 높아져요</div></div>
+          <div class="stat hl"><div class="lab">열선의 색</div><div class="val" id="hColor">-</div></div>
+        </div>
+        <div class="btn-row" style="margin-top:12px">
+          <button class="btn primary" type="button" id="btnHRec">● 기록하기</button>
+          <button class="btn" type="button" id="btnHAuto">▶ 천천히 올려 보기</button>
+          <button class="btn ghost" type="button" id="btnHClear">기록 지우기</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>온도와 색 변화 기록</h3>
+        <canvas id="cvHeatBar" class="h-120" style="height:120px" role="img" aria-label="온도가 낮을 때부터 높을 때까지 색의 변화"></canvas>
+        <div class="table-scroll" style="margin-top:10px">
+          <table class="data" aria-label="기록 표">
+            <thead><tr><th>전압 단계</th><th>열선의 온도</th><th>열선의 색</th></tr></thead>
+            <tbody id="hRecBody"><tr><td colspan="3" class="muted">아직 기록이 없어요. [기록하기]를 눌러 보세요.</td></tr></tbody>
+          </table>
+        </div>
+        <p class="note">※ 전압 단계(0~10)와 색은 교과서의 전구 필라멘트 탐구(지도서)의 변화 순서를 본뜬 그림이에요. 실제 온도 값은 나타내지 않았어요.</p>
+      </div>
+    </div>
+
+    <details class="learned">
+      <summary>💡 알게 된 점 (눌러서 확인)</summary>
+      <ul>
+        <li>열선의 온도가 높아질수록 색은 <b>붉은색 → 주황색 → 노란색 → 흰색</b>에 가까운 쪽으로 바뀌어요.</li>
+        <li>이처럼 <b>빛을 방출하는 물체는 온도에 따라 색이 달라져요.</b> (전구의 필라멘트, 불꽃에서도 볼 수 있어요.)</li>
+        <li>별은 스스로 빛을 내는 천체이므로, 별의 색도 온도와 관계가 있을 거예요. → 활동 ②</li>
+      </ul>
+    </details>
+  </section>
+
+  <!-- ============ 활동 2 ============ -->
+  <section class="panel" id="p2" role="tabpanel" aria-labelledby="tab-2" hidden>
+    <div class="intro">
+      <div class="card">
+        <p class="question"><span class="q-badge">탐구 질문</span>별의 색은 표면 온도와 어떤 관계가 있을까?</p>
+        <ol class="steps">
+          <li><b>표면 온도 슬라이더</b>를 움직여 별의 색이 어떻게 바뀌는지 관찰하세요.</li>
+          <li>아래 <b>별 이름 버튼</b>을 눌러 실제 별(교과서 자료)의 색과 온도를 확인하세요.</li>
+          <li>오른쪽 그래프에서 <b>파란 빛과 붉은 빛 중 무엇이 더 많은지</b> 비교해 보세요.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>생각해 보기</h3>
+        <div class="predict">🤔 <b>예상해 보기</b> — 별의 표면 온도가 높아지면 별의 색은 <b>붉은색 쪽</b>으로 갈까요, <b>파란색 쪽</b>으로 갈까요?</div>
+        <p class="small muted" style="margin-top:8px"><b>켈빈(K)</b>: 별의 표면 온도는 절대 온도(켈빈)로 자주 나타내요. 섭씨 온도(°C)에 273.15를 더하면 K이 돼요.</p>
+      </div>
+    </div>
+
+    <div class="grid2 even">
+      <div class="card">
+        <h3>별의 모습</h3>
+        <canvas id="cvStar" class="sky h-260" role="img" aria-label="표면 온도에 따라 색이 달라지는 별"></canvas>
+        <div class="controls">
+          <div class="slider-row">
+            <label for="sT">표면 온도</label>
+            <input type="range" id="sT" min="0" max="1" step="0.001" value="0.5">
+            <output id="sTout" for="sT">-</output>
+          </div>
+        </div>
+        <div class="stats" aria-live="polite">
+          <div class="stat"><div class="lab">표면 온도</div><div class="val" id="tK">-</div><div class="sub" id="tC">-</div></div>
+          <div class="stat hl"><div class="lab">별의 색</div><div class="val" id="tName">-</div><div class="sub" id="tClass">-</div></div>
+        </div>
+        <div class="star-btns" id="starBtns" role="group" aria-label="실제 별 선택"></div>
+        <p class="note" id="starNote">별 이름을 누르면 그 별의 표면 온도로 맞춰져요. 태양의 표면 온도는 교과서에 약 6000 °C로 적혀 있는데, 어림한 값이에요. 이 시뮬레이션에서는 약 5800 K(약 5500 °C)로 두었어요.</p>
+      </div>
+      <div class="card">
+        <h3>별빛 속에 들어 있는 색 (가시광선)</h3>
+        <canvas id="cvSpec" class="h-260" role="img" aria-label="파장에 따른 별이 방출하는 빛의 양 그래프"></canvas>
+        <div class="readout" id="specInfo" aria-live="polite"></div>
+        <p class="note">※ 곡선의 모양을 비교하기 쉽게 가장 높은 값을 1로 맞췄어요. (뜨거운 별은 전체 빛의 양도 훨씬 많아요.)</p>
+        <h3 style="margin-top:14px">태양의 표면 온도가 내려가면? <span class="tag">스스로 평가 연결</span></h3>
+        <div class="btn-row">
+          <button class="btn primary" type="button" id="btnSunDown">▶ 태양의 표면 온도 낮추기</button>
+          <button class="btn" type="button" id="btnSunReset">↺ 태양으로 되돌리기</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h3>표면 온도에 따른 별의 분류 <span class="tag">분광형 · 지도서 참고 자료</span></h3>
+      <div class="cls-strip" id="clsStrip" role="group" aria-label="분광형 선택"></div>
+      <p class="note">색 이름과 온도 범위는 지도서의 분광형 표(O, B, A, F, G, K, M형)를 따랐어요. 화면의 별 색은 이 색 이름에 맞춰 단순하게 나타낸 그림이에요.</p>
+    </div>
+
+    <details class="learned">
+      <summary>💡 알게 된 점 (눌러서 확인)</summary>
+      <ul>
+        <li>표면 온도가 <b>높은 별</b>은 <b>파란색</b> 빛을 많이 방출해서 파란색을 띠고, 표면 온도가 <b>낮은 별</b>은 <b>붉은색</b> 빛을 많이 방출해서 붉은색을 띠어요.</li>
+        <li>따라서 <b>별의 색을 이용해 표면 온도를 비교</b>할 수 있어요.</li>
+        <li>태양은 표면 온도가 약 6000 °C(교과서 어림값)이고 노란색으로 보여요. 태양의 표면 온도가 내려가면 색은 노란색에서 더 <b>붉은색</b>에 가까워져요.</li>
+      </ul>
+    </details>
+  </section>
+
+  <!-- ============ 활동 3 ============ -->
+  <section class="panel" id="p3" role="tabpanel" aria-labelledby="tab-3" hidden>
+    <div class="intro">
+      <div class="card">
+        <p class="question"><span class="q-badge">탐구 질문</span>색만 보고 어느 별이 더 뜨거운지 알 수 있을까?</p>
+        <ol class="steps">
+          <li><b>[도전! 어느 별이 더 뜨거울까?]</b>에서 두 별의 색만 보고 골라 보세요.</li>
+          <li>그래프에서 <b>교과서에 나온 별들</b>의 색과 표면 온도를 비교해 보세요.</li>
+          <li>모둠별로 별자리를 정해 그 별자리의 별들도 같은 방법으로 조사해 보세요.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>잠깐! 이런 생각을 해 본 적 있나요?</h3>
+        <div class="misc"><b>✘ 오개념</b> — “붉은색은 따뜻한 색이니까 붉은색 별이 더 뜨거울 거야.”</div>
+        <div class="okbox"><b>✔ 과학적 개념</b> — 별은 반대예요. 표면 온도가 높을수록 별의 색은 <b>파란색</b>에 가까워지고, 낮을수록 <b>붉은색</b>에 가까워져요.</div>
+      </div>
+    </div>
+
+    <div class="grid2 even">
+      <div class="card">
+        <h3>도전! 어느 별이 더 뜨거울까?</h3>
+        <canvas id="cvGame" class="sky h-220" role="img" aria-label="색이 다른 두 별 A와 B"></canvas>
+        <div class="vote">
+          <button class="btn" type="button" id="voteA">별 A가 더 뜨거워요</button>
+          <button class="btn" type="button" id="voteB">별 B가 더 뜨거워요</button>
+        </div>
+        <div class="readout" id="gameInfo" aria-live="polite">두 별의 색을 보고 더 뜨거운 별을 골라 보세요.</div>
+        <div class="gamebar">
+          <span class="chip" id="gameScore">맞힌 문제 0 / 0</span>
+          <button class="btn primary" type="button" id="gameNext">다음 문제 ▶</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>교과서에 나온 별의 색과 표면 온도</h3>
+        <canvas id="cvBars" class="h-400" role="img" aria-label="별의 표면 온도 막대그래프. 막대 색은 별의 색을 나타냄"></canvas>
+        <details style="margin-top:8px">
+          <summary style="cursor:pointer; font-weight:700">표로 보기</summary>
+          <div class="table-scroll"><table class="data" style="margin-top:8px"><thead><tr><th class="l">별</th><th>색</th><th>표면 온도(°C)</th></tr></thead><tbody id="tbl3"></tbody></table></div>
+        </details>
+        <p class="note">교과서 표기 그대로예요(교과서 284쪽). 별의 표면 온도는 켈빈(K)으로 나타내는 경우가 많은데, 이렇게 큰 값에서는 °C와 K의 값 차이(273)가 작아 순서를 비교하는 데에는 영향이 거의 없어요.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h3>다시 한 번 생각해 보기</h3>
+      <p class="small" style="color:var(--text-secondary)">“태양의 표면 온도가 내려가면 태양의 색은 어떻게 변할까?” 친구에게 설명해 보세요.</p>
+      <div class="btn-row"><button class="btn primary" type="button" id="btnGoSun">② 활동에서 확인하기 ▶</button></div>
+    </div>
+
+    <details class="learned">
+      <summary>💡 알게 된 점 (눌러서 확인)</summary>
+      <ul>
+        <li><b>푸른색을 띠는 별이 붉은색을 띠는 별보다 표면 온도가 높아요.</b> 별의 색은 표면 온도에 따라 달라져요.</li>
+        <li>실제 밤하늘에서 맨눈으로 별의 색을 구분하기는 어려워서, 대부분 <b>천체 망원경으로 촬영한 사진이나 관측 자료</b>를 바탕으로 별의 색을 구분해요.</li>
+        <li>별의 색이 같은 계열이어도 온도는 조금씩 달라요. 색은 온도를 <b>비교</b>하는 단서예요.</li>
+      </ul>
+    </details>
+  </section>
+
+  <!-- ============ 활동 4 ============ -->
+  <section class="panel" id="p4" role="tabpanel" aria-labelledby="tab-4" hidden>
+    <div class="quiz-wrap">
+      <div class="card">
+        <h3>개념 확인 문제 <span class="tag" id="quizScoreTag">0 / 10</span></h3>
+        <div class="q-progress" id="qProgress" aria-label="문제 번호"></div>
+        <div id="qArea"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    별의 색과 표면 온도 탐구 시뮬레이션 · 인터넷 연결 없이 실행되는 단일 HTML 파일 · 내용 근거: 중학교 과학 2 교과서·교사용 지도서 Ⅷ-1 (284~285쪽)
+  </footer>
+</div>
+
+<div id="tooltip" role="status" hidden></div>
+
+<!-- 교사용 안내 -->
+<div class="modal-back" id="teacherModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tmTitle">
+    <button class="btn close" type="button" id="btnTeacherClose">닫기 ✕</button>
+    <h2 id="tmTitle">교사용 안내</h2>
+    <p class="small muted">Ⅷ-1-03. 별의 색이 다양하게 나타나는 까닭은 무엇일까 · 교과서 284~285쪽 · 성취기준 [9과15-01]</p>
+
+    <h4>활동과 교과서 연결</h4>
+    <div class="table-scroll">
+      <table class="data">
+        <thead><tr><th class="l">활동</th><th class="l">핵심 내용</th><th class="l">교과서·지도서</th></tr></thead>
+        <tbody>
+          <tr><td class="l">① 달궈지는 열선의 색</td><td class="l">온도가 높아질수록 붉은색 → 주황 → 노랑 → 흰색, 빛을 내는 물체는 온도에 따라 색이 달라짐</td><td class="l">284쪽 도입(전기난로 열선), 지도서 탐구(전구 필라멘트)</td></tr>
+          <tr><td class="l">② 별의 색과 표면 온도</td><td class="l">높은 온도 = 파란색, 낮은 온도 = 붉은색, 태양 온도가 내려가면 더 붉어짐, 켈빈, 분광형</td><td class="l">284~285쪽, 지도서 참고 자료(분광형 표)</td></tr>
+          <tr><td class="l">③ 색으로 온도 비교하기</td><td class="l">교과서 자료 조사(별 색·온도), ‘붉은색 별이 더 뜨겁다’ 오개념 해결</td><td class="l">284쪽 자료 조사, 지도서 ‘학생들이 갖는 오개념’</td></tr>
+          <tr><td class="l">④ 개념 확인 문제</td><td class="l">객관식·O/X 10문항 + 서술형 1문항 (스스로 평가, ‘또 다른 평가 문항’ 반영)</td><td class="l">285쪽, 지도서</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>수업 운영 예시 (45분 기준, 제작자 제안)</h4>
+    <ul>
+      <li>도입 (5분): 전기난로 열선 사진/활동 ① 슬라이더로 “온도가 올라가면 색이 어떻게 변하지?”</li>
+      <li>전개 1 (10분): 활동 ② — 슬라이더와 별 이름 버튼으로 색과 온도 관계 찾기</li>
+      <li>전개 2 (15분): 자료 조사(스마트 기기로 별자리의 별 색·온도 조사) 후 활동 ③ 그래프와 비교</li>
+      <li>전개 3 (8분): 활동 ③ 도전 문제와 오개념 확인</li>
+      <li>정리 (7분): 활동 ④ 문제 풀이, “태양의 온도가 내려가면?” 친구에게 설명</li>
+    </ul>
+
+    <h4>수치와 표현의 근거 · 지도 시 확인할 점</h4>
+    <ul>
+      <li>별 자료: 스피카·알데바란·리겔·베텔게우스·베가·안타레스·시리우스·미르잠·웨젠·아다라는 교과서 284쪽 값(°C 표기)이에요. 태양 약 6000 °C는 교과서 285쪽·지도서 값이에요.</li>
+      <li><b>단위:</b> 교과서 별 자료는 °C로 적혀 있지만 활동 ②는 K로 나타내고, 교과서 °C 값에 273을 더해 슬라이더에 맞췄어요. 지도서 분광형 표가 K 단위여서 그렇게 했어요.</li>
+      <li><b>태양:</b> 교과서의 약 6000 °C는 어림값이에요. 활동 ②에서는 약 5800 K로 두었어요. 6000 °C를 K로 바꾸면 약 6273 K라 지도서 표에서 F형(황백색) 구간이 되어, 교과서의 ‘노란색 태양(G형)’과 어긋나기 때문이에요. 태양 표면 온도로 흔히 쓰는 값은 약 5772 K(IAU 2015 기준값)이에요.</li>
+      <li><b>시리우스:</b> 교과서 표는 약 12000 °C, 하얀색이에요. 지도서 분광형 표 기준으로는 청백색(B형) 범위라 학생이 질문할 수 있어요. 활동 ③ 도전 문제에서는 헷갈리지 않도록 시리우스를 제외했어요. (시리우스는 보통 A형으로 분류되며 표면 온도는 약 10000 K 안팎으로 알려져 있어요.)</li>
+      <li><b>색 표현:</b> 화면의 별 색은 지도서 분광형의 색 이름(파란색·청백색·흰색·황백색·노란색·주황색·붉은색)에 맞춰 만든 단순화한 그림이에요. 실제 사진 색과는 다를 수 있어요. 활동 ①의 열선 색도 변화 순서를 보여 주는 그림이라 활동 ②의 온도와 직접 비교하지 않도록 안내해 주세요.</li>
+      <li><b>빛의 분포 그래프:</b> 플랑크 복사 법칙으로 계산한 상대적인 양이에요(별을 이상적인 흑체로 가정). 교과서는 ‘표면 온도가 낮은 별은 붉은색 빛을 가장 많이 방출한다’고 단순화해 설명해요. 실제로는 아주 차가운 별의 방출이 가장 큰 파장이 눈에 보이지 않는 적외선에 있기 때문에, 이 시뮬레이션에서는 눈에 보이는 영역(350~800 nm)만 그렸어요. 그 안에서 온도가 낮으면 붉은 쪽, 높으면 파란 쪽 빛이 더 많은 모습을 확인할 수 있어요.</li>
+      <li>활동 ②의 ‘파란 빛(450 nm)·붉은 빛(650 nm)의 양 비교’는 교육과정 범위를 벗어나는 식 없이 결과만 보여 주기 위한 장치예요.</li>
+    </ul>
+
+    <h4>지도할 때 살펴볼 점 (제작자 정리)</h4>
+    <ul>
+      <li>‘붉은색 = 뜨겁다’는 생각이 있는지 활동 ③의 예상 선택 결과로 확인할 수 있어요.</li>
+      <li>켈빈은 활동 ② 상단 설명으로 간단히 다루고, ‘0 K은 이론상의 최저 온도, 음수가 없다’ 정도만 확인하면 돼요.</li>
+      <li>별의 밝기(지난 시간)와 색은 서로 다른 성질이라는 점도 짚어 주세요. 교과서에는 ‘밝기가 비슷해도 색은 조금씩 다르다’고 적혀 있어요.</li>
+    </ul>
+
+    <h4>실행 방법</h4>
+    <ul>
+      <li>파일을 더블클릭하면 크롬·엣지·웨일 등 브라우저에서 바로 열려요. 인터넷 연결과 프로그램 설치가 필요 없어요.</li>
+      <li>[전체 화면] 버튼 또는 F11 키로 크게 볼 수 있어요. 주소 끝에 <code>#2</code>를 붙이면 해당 활동이 바로 열려요.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- 공통 도구 ---------- */
+var $ = function(s, el){ return (el||document).querySelector(s); };
+var $$ = function(s, el){ return Array.prototype.slice.call((el||document).querySelectorAll(s)); };
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function cssv(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+var C = {};
+['surface-1','surface-2','surface-3','sky','grid','border','text-primary','text-secondary','text-muted','accent','series-1','series-2','series-3'].forEach(function(k){ C[k] = cssv('--'+k); });
+var FONT = cssv('--font') || 'sans-serif';
+function font(size, weight){ return (weight||400) + ' ' + size + 'px ' + FONT; }
+function fix(v, d){ var p = Math.pow(10, d); return (Math.round(v*p)/p).toFixed(d); }
+function fmtInt(n){ return Math.round(n).toLocaleString('ko-KR'); }
+function makeScale(d0, d1, r0, r1){ return function(v){ return r0 + (v - d0) * (r1 - r0) / (d1 - d0); }; }
+function setupCanvas(cv){
+  var dpr = window.devicePixelRatio || 1, rect = cv.getBoundingClientRect();
+  var w = Math.max(1, Math.round(rect.width)), h = Math.max(1, Math.round(rect.height));
+  var W = Math.round(w*dpr), H = Math.round(h*dpr);
+  if (cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; }
+  var ctx = cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.shadowBlur = 0;
+  cv._hits = [];
+  return {ctx:ctx, w:w, h:h};
+}
+function text(ctx, s, x, y, opt){
+  opt = opt || {};
+  ctx.font = font(opt.size || 13, opt.weight || 400);
+  ctx.fillStyle = opt.color || C['text-secondary'];
+  ctx.textAlign = opt.align || 'left'; ctx.textBaseline = opt.base || 'middle';
+  ctx.fillText(s, x, y);
+}
+function roundRect(ctx, x, y, w, h, r){
+  r = Math.min(r, Math.abs(w)/2, Math.abs(h)/2);
+  ctx.beginPath(); ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y); ctx.arcTo(x+w, y, x+w, y+r, r);
+  ctx.lineTo(x+w, y+h-r); ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
+  ctx.lineTo(x+r, y+h); ctx.arcTo(x, y+h, x, y+h-r, r);
+  ctx.lineTo(x, y+r); ctx.arcTo(x, y, x+r, y, r); ctx.closePath();
+}
+function barH(ctx, x, y, len, th, color){ // 가로 막대: 기준선은 각지고 끝만 4px 둥글게
+  if (len <= 0) return;
+  var r = Math.min(4, len, th/2);
+  ctx.fillStyle = color; ctx.beginPath();
+  ctx.moveTo(x, y); ctx.lineTo(x+len-r, y); ctx.arcTo(x+len, y, x+len, y+r, r);
+  ctx.lineTo(x+len, y+th-r); ctx.arcTo(x+len, y+th, x+len-r, y+th, r);
+  ctx.lineTo(x, y+th); ctx.closePath(); ctx.fill();
+}
+function seeded(seed){ var s = seed; return function(){ s = (s*16807) % 2147483647; return (s-1)/2147483646; }; }
+function bgStars(ctx, w, h, seed, n){
+  var rnd = seeded(seed);
+  for (var i=0; i<n; i++){
+    ctx.fillStyle = 'rgba(220,228,255,' + (0.08 + rnd()*0.22) + ')';
+    ctx.beginPath(); ctx.arc(rnd()*w, rnd()*h, 0.5 + rnd()*0.8, 0, Math.PI*2); ctx.fill();
+  }
+}
+function rgb(c){ return 'rgb(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ')'; }
+function rgba(c, a){ return 'rgba(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ',' + a + ')'; }
+function mix(a, b, t){ return [a[0] + (b[0]-a[0])*t, a[1] + (b[1]-a[1])*t, a[2] + (b[2]-a[2])*t]; }
+function hex2rgb(h){ return [parseInt(h.substr(1,2),16), parseInt(h.substr(3,2),16), parseInt(h.substr(5,2),16)]; }
+function ramp(stops, v){ // stops: [[x, [r,g,b]], ...]
+  if (v <= stops[0][0]) return stops[0][1];
+  for (var i=1; i<stops.length; i++){
+    if (v <= stops[i][0]){ var a = stops[i-1], b = stops[i]; return mix(a[1], b[1], (v - a[0])/(b[0] - a[0])); }
+  }
+  return stops[stops.length-1][1];
+}
+function drawStarDisc(ctx, x, y, R, c){
+  var g = ctx.createRadialGradient(x, y, R*0.4, x, y, R*2.8);
+  g.addColorStop(0, rgba(c, 0.55)); g.addColorStop(0.35, rgba(c, 0.18)); g.addColorStop(1, rgba(c, 0));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, R*2.8, 0, Math.PI*2); ctx.fill();
+  var d = ctx.createRadialGradient(x - R*0.3, y - R*0.3, R*0.1, x, y, R);
+  d.addColorStop(0, rgb(mix(c, [255,255,255], 0.55))); d.addColorStop(0.55, rgb(c)); d.addColorStop(1, rgb(mix(c, [0,0,0], 0.18)));
+  ctx.fillStyle = d; ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI*2); ctx.fill();
+}
+
+/* ---------- 툴팁 ---------- */
+var tip = $('#tooltip');
+function hideTip(){ tip.hidden = true; }
+function showTip(html, cx, cy){
+  tip.innerHTML = html; tip.hidden = false;
+  var tw = tip.offsetWidth, th = tip.offsetHeight, tx = cx + 14, ty = cy - th - 10;
+  if (tx + tw > window.innerWidth - 8) tx = cx - tw - 14;
+  if (ty < 8) ty = cy + 16;
+  tip.style.left = tx + 'px'; tip.style.top = ty + 'px';
+}
+function hoverHits(cv, cx, cy){
+  var rect = cv.getBoundingClientRect(), x = cx - rect.left, y = cy - rect.top, best = null;
+  (cv._hits || []).forEach(function(h){
+    if (h.rect){ var q = h.rect; if (x >= q[0] && x <= q[2] && y >= q[1] && y <= q[3]) best = h; }
+  });
+  if (!best) hideTip(); else showTip(best.html, cx, cy);
+}
+function enableRectTips(cv){
+  ['pointermove','pointerdown'].forEach(function(ev){ cv.addEventListener(ev, function(e){ hoverHits(cv, e.clientX, e.clientY); }); });
+  cv.addEventListener('pointerleave', hideTip);
+}
+
+/* ---------- 색 데이터 ---------- */
+// 별 색: 지도서 분광형의 색 이름에 맞춘 단순화 색상표 (온도 K)
+var STAR_STOPS = [
+  [2500,[255,48,24]], [3700,[255,86,34]], [4400,[255,150,51]], [5200,[255,190,66]],
+  [5800,[255,222,90]], [6750,[255,243,185]], [8750,[246,247,255]], [20000,[188,210,255]], [40000,[143,179,255]]
+];
+function starColor(T){ return ramp(STAR_STOPS, T); }
+var CLASSES = [
+  {k:'O', name:'파란색',  rng:'30000 K 초과', c:35000},
+  {k:'B', name:'청백색',  rng:'10000~30000 K', c:18000},
+  {k:'A', name:'흰색',    rng:'7500~10000 K', c:8750},
+  {k:'F', name:'황백색',  rng:'6000~7500 K', c:6750},
+  {k:'G', name:'노란색',  rng:'5200~6000 K', c:5600},
+  {k:'K', name:'주황색',  rng:'3700~5200 K', c:4400},
+  {k:'M', name:'붉은색',  rng:'3700 K 미만', c:3200}
+];
+function classOf(T){
+  if (T > 30000) return CLASSES[0];
+  if (T >= 10000) return CLASSES[1];
+  if (T >= 7500) return CLASSES[2];
+  if (T >= 6000) return CLASSES[3];
+  if (T >= 5200) return CLASSES[4];
+  if (T >= 3700) return CLASSES[5];
+  return CLASSES[6];
+}
+var COLOR_BY_NAME = {
+  '파란색':[143,179,255], '청백색':[188,210,255], '흰색':[246,247,255], '하얀색':[246,247,255],
+  '황백색':[255,243,185], '노란색':[255,222,90], '주황색':[255,150,51], '붉은색':[255,74,31]
+};
+// 교과서 284~285쪽 별 자료 (표면 온도는 교과서 표기 그대로 °C)
+var STARS = [
+  {n:'스피카',   col:'청백색', tC:20000, more:true},
+  {n:'알데바란', col:'주황색', tC:3700},
+  {n:'리겔',     col:'청백색', tC:12000},
+  {n:'베텔게우스',col:'붉은색', tC:3200},
+  {n:'베가',     col:'흰색',   tC:9700},
+  {n:'안타레스', col:'붉은색', tC:3000},
+  {n:'시리우스', col:'하얀색', tC:12000},
+  {n:'미르잠',   col:'청백색', tC:23000},
+  {n:'웨젠',     col:'황백색', tC:6000},
+  {n:'아다라',   col:'청백색', tC:22600},
+  {n:'태양',     col:'노란색', tC:6000}
+];
+
+/* =========================================================
+   활동 1 : 달궈지는 열선
+   ========================================================= */
+var cvHeat = $('#cvHeat'), cvHeatBar = $('#cvHeatBar');
+var S1 = { v:0, recs:[], anim:0 };
+var HEAT_STOPS = [
+  [0,[64,64,74]], [0.12,[112,24,12]], [0.3,[205,42,16]], [0.5,[255,92,28]],
+  [0.68,[255,152,48]], [0.84,[255,214,92]], [1,[255,244,216]]
+];
+function heatColor(p){ return ramp(HEAT_STOPS, p); }
+function heatName(p){
+  if (p < 0.06) return '색이 거의 없음 (식어 있음)';
+  if (p < 0.26) return '어두운 붉은색';
+  if (p < 0.47) return '붉은색';
+  if (p < 0.64) return '주황색';
+  if (p < 0.82) return '주황빛 노란색';
+  if (p < 0.94) return '노란색';
+  return '흰색에 가까운 노란색';
+}
+function heatTemp(p){ return p < 0.06 ? '낮음 (거의 식음)' : p < 0.34 ? '낮음' : p < 0.67 ? '중간' : '높음'; }
+function drawHeat(){
+  var o = setupCanvas(cvHeat), ctx = o.ctx, w = o.w, h = o.h;
+  var p = S1.v/10, col = heatColor(p), cx = w/2, cy = h*0.5;
+  ctx.fillStyle = '#0a0d1c'; ctx.fillRect(0, 0, w, h);
+  var g = ctx.createRadialGradient(cx, cy, 10, cx, cy, w*0.6);
+  g.addColorStop(0, rgba(col, 0.5*p)); g.addColorStop(1, rgba(col, 0));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  var x0 = w*0.14, x1 = w*0.86, amp = Math.min(40, h*0.17);
+  ctx.fillStyle = '#3b4268';
+  roundRect(ctx, x0 - 28, cy - amp - 20, 28, amp*2 + 40, 6); ctx.fill();
+  roundRect(ctx, x1, cy - amp - 20, 28, amp*2 + 40, 6); ctx.fill();
+  var n = Math.max(6, Math.round((x1 - x0)/30));
+  function path(){
+    ctx.beginPath(); ctx.moveTo(x0, cy);
+    for (var i=0; i<=n; i++){ ctx.lineTo(x0 + (x1 - x0)*i/n, cy + (i % 2 ? amp : -amp)); }
+    ctx.lineTo(x1, cy);
+  }
+  ctx.save();
+  ctx.lineWidth = 12; ctx.strokeStyle = rgb(col);
+  ctx.shadowColor = rgba(col, 0.95); ctx.shadowBlur = 48*p;
+  path(); ctx.stroke();
+  ctx.restore();
+  ctx.lineWidth = 4; ctx.strokeStyle = rgb(mix(col, [255,255,255], 0.5*p + 0.1));
+  path(); ctx.stroke();
+  text(ctx, '열선', cx, h - 18, {align:'center', size:13, weight:700, color:C['text-secondary']});
+}
+function drawHeatBar(){
+  var o = setupCanvas(cvHeatBar), ctx = o.ctx, w = o.w, h = o.h;
+  var m = {l:14, r:14}, y = 34, th = 26, X = makeScale(0, 1, m.l, w - m.r);
+  var g = ctx.createLinearGradient(m.l, 0, w - m.r, 0);
+  for (var i=0; i<=20; i++){ g.addColorStop(i/20, rgb(heatColor(i/20))); }
+  ctx.fillStyle = g; roundRect(ctx, m.l, y, w - m.l - m.r, th, 6); ctx.fill();
+  text(ctx, '온도 낮음', m.l, 14, {size:12, weight:700, color:C['text-secondary']});
+  text(ctx, '온도 높음', w - m.r, 14, {align:'right', size:12, weight:700, color:C['text-secondary']});
+  var marks = [[0.36,'붉은색'],[0.58,'주황색'],[0.88,'노란색']];
+  marks.forEach(function(mk){ text(ctx, mk[1], X(mk[0]), y + th + 14, {align:'center', size:12, color:C['text-secondary']}); });
+  var px = X(S1.v/10);
+  ctx.fillStyle = C.accent; ctx.beginPath(); ctx.moveTo(px, y - 2); ctx.lineTo(px - 7, y - 12); ctx.lineTo(px + 7, y - 12); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = C.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(px, y); ctx.lineTo(px, y + th); ctx.stroke();
+  text(ctx, '현재', px, h - 10, {align:'center', size:12, weight:700, color:C.accent});
+}
+function renderHRec(){
+  var tb = $('#hRecBody');
+  if (!S1.recs.length){ tb.innerHTML = '<tr><td colspan="3" class="muted">아직 기록이 없어요. [기록하기]를 눌러 보세요.</td></tr>'; return; }
+  tb.innerHTML = S1.recs.map(function(r){
+    var c = heatColor(r/10);
+    return '<tr><td>' + fix(r,1) + ' / 10</td><td>' + heatTemp(r/10) + '</td><td><span class="swatch" style="background:' + rgb(c) + '"></span>' + heatName(r/10) + '</td></tr>';
+  }).join('');
+}
+function update1(){
+  var p = S1.v/10;
+  $('#vHeatOut').textContent = fix(S1.v, 1) + ' / 10';
+  $('#hTemp').textContent = heatTemp(p);
+  $('#hColor').textContent = heatName(p);
+  drawHeat(); drawHeatBar();
+}
+$('#vHeat').addEventListener('input', function(e){ cancelAnimationFrame(S1.anim); S1.v = Number(e.target.value); update1(); });
+$('#btnHRec').addEventListener('click', function(){
+  var v = Math.round(S1.v*10)/10;
+  if (!S1.recs.some(function(r){ return Math.abs(r - v) < 0.001; })) S1.recs.push(v);
+  S1.recs.sort(function(a,b){ return a-b; }); renderHRec();
+});
+$('#btnHClear').addEventListener('click', function(){ S1.recs = []; renderHRec(); });
+$('#btnHAuto').addEventListener('click', function(){
+  cancelAnimationFrame(S1.anim);
+  var from = 0, t0 = performance.now(), dur = 6000;
+  function step(t){
+    var k = Math.min(1, (t - t0)/dur); S1.v = from + (10 - from)*k;
+    $('#vHeat').value = S1.v; update1();
+    if (k < 1) S1.anim = requestAnimationFrame(step);
+  }
+  S1.anim = requestAnimationFrame(step);
+});
+
+/* =========================================================
+   활동 2 : 별의 색과 표면 온도
+   ========================================================= */
+var cvStar = $('#cvStar'), cvSpec = $('#cvSpec');
+var TMIN = 2500, TMAX = 40000;
+var S2 = { T:5800, anim:0, preset:'태양' };
+var PRESETS = [
+  {n:'태양', T:5800, col:'노란색'},
+  {n:'안타레스', T:3000 + 273, col:'붉은색'},
+  {n:'베텔게우스', T:3200 + 273, col:'붉은색'},
+  {n:'알데바란', T:3700 + 273, col:'주황색'},
+  {n:'웨젠', T:6000 + 273, col:'황백색'},
+  {n:'베가', T:9700 + 273, col:'흰색'},
+  {n:'리겔', T:12000 + 273, col:'청백색'},
+  {n:'아다라', T:22600 + 273, col:'청백색'},
+  {n:'미르잠', T:23000 + 273, col:'청백색'}
+];
+function posOf(T){ return Math.log(T/TMIN)/Math.log(TMAX/TMIN); }
+function tOf(p){ return TMIN*Math.pow(TMAX/TMIN, p); }
+function planck(lam, T){ return Math.pow(lam, -5) / (Math.exp(1.4388e7/(lam*T)) - 1); }
+function wl2rgb(w){
+  var r=0, g=0, b=0;
+  if (w >= 380 && w < 440){ r = -(w-440)/60; b = 1; }
+  else if (w < 490){ g = (w-440)/50; b = 1; }
+  else if (w < 510){ g = 1; b = -(w-510)/20; }
+  else if (w < 580){ r = (w-510)/70; g = 1; }
+  else if (w < 645){ r = 1; g = -(w-645)/65; }
+  else if (w <= 780){ r = 1; }
+  var f = (w < 380 || w > 780) ? 0.25 : (w < 420 ? 0.3 + 0.7*(w-380)/40 : (w > 700 ? 0.3 + 0.7*(780-w)/80 : 1));
+  if (w < 380 || w > 780){ return [70,66,90]; }
+  return [255*Math.pow(r*f, 0.8), 255*Math.pow(g*f, 0.8), 255*Math.pow(b*f, 0.8)];
+}
+function updateStarButtons(){
+  $$('#starBtns .btn').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.n === S2.preset ? 'true' : 'false'); });
+  $$('#clsStrip .cls').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.k === classOf(S2.T).k ? 'true' : 'false'); });
+}
+function drawStarCanvas(){
+  var o = setupCanvas(cvStar), ctx = o.ctx, w = o.w, h = o.h;
+  bgStars(ctx, w, h, 71, 60);
+  var c = starColor(S2.T), R = Math.min(h*0.28, w*0.2);
+  drawStarDisc(ctx, w/2, h*0.46, R, c);
+  var cl = classOf(S2.T);
+  text(ctx, S2.preset ? S2.preset : '가상의 별', w/2, h - 40, {align:'center', size:15, weight:800, color:C['text-primary']});
+  text(ctx, cl.name + ' · ' + fmtInt(S2.T) + ' K', w/2, h - 18, {align:'center', size:13, color:C['text-secondary']});
+}
+var specX = {l:48, r:14, t:18, b:44};
+function drawSpec(){
+  var o = setupCanvas(cvSpec), ctx = o.ctx, w = o.w, h = o.h, m = specX;
+  var L0 = 350, L1 = 800, X = makeScale(L0, L1, m.l, w - m.r), Y = makeScale(0, 1.05, h - m.b, m.t);
+  var T = S2.T, max = 0, i;
+  for (i=L0; i<=L1; i+=5){ max = Math.max(max, planck(i, T)); }
+  ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+  [0, 0.5, 1].forEach(function(v){
+    ctx.beginPath(); ctx.moveTo(m.l, Y(v)); ctx.lineTo(w - m.r, Y(v)); ctx.stroke();
+    text(ctx, String(v), m.l - 8, Y(v), {align:'right', size:11, color:C['text-muted']});
+  });
+  [400, 500, 600, 700, 800].forEach(function(l){
+    text(ctx, String(l), X(l), h - m.b + 14, {align:'center', size:11, color:C['text-muted']});
+  });
+  // 무지개색으로 칠한 곡선 아래 면 (가시광선)
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(X(L0), Y(0));
+  for (i=L0; i<=L1; i+=5){ ctx.lineTo(X(i), Y(planck(i, T)/max)); }
+  ctx.lineTo(X(L1), Y(0)); ctx.closePath(); ctx.clip();
+  for (i=L0; i<L1; i+=5){ ctx.fillStyle = rgb(wl2rgb(i + 2.5)); ctx.globalAlpha = 0.9; ctx.fillRect(X(i), m.t, X(i + 5) - X(i) + 1, h - m.t - m.b); }
+  ctx.restore();
+  // 곡선
+  ctx.strokeStyle = C['text-primary']; ctx.lineWidth = 2; ctx.beginPath();
+  for (i=L0; i<=L1; i+=5){ var px = X(i), py = Y(planck(i, T)/max); if (i === L0) ctx.moveTo(px, py); else ctx.lineTo(px, py); }
+  ctx.stroke();
+  // 파란 빛, 붉은 빛 표시
+  [[450,'파란 빛'],[650,'붉은 빛']].forEach(function(mk){
+    var px = X(mk[0]), py = Y(planck(mk[0], T)/max);
+    ctx.fillStyle = C['surface-1']; ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = C['text-primary']; ctx.beginPath(); ctx.arc(px, py, 4.5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(px, py + 8); ctx.lineTo(px, Y(0)); ctx.stroke(); ctx.setLineDash([]);
+    var ty = py < h*0.35 ? py + 20 : py - 16;
+    ctx.fillStyle = 'rgba(6,10,24,.85)'; roundRect(ctx, px - 30, ty - 10, 60, 20, 4); ctx.fill();
+    text(ctx, mk[1], px, ty, {align:'center', size:12, weight:700, color:C['text-primary']});
+  });
+  text(ctx, '파장 (nm)', (m.l + w - m.r)/2, h - 12, {align:'center', size:12, color:C['text-secondary']});
+  text(ctx, '방출하는 빛의 양(상대)', 4, 8, {size:12, color:C['text-secondary'], base:'top'});
+  text(ctx, '◀ 파란색 쪽', m.l + 4, m.t + 10, {size:11, color:C['text-secondary']});
+  text(ctx, '붉은색 쪽 ▶', w - m.r - 4, m.t + 10, {align:'right', size:11, color:C['text-secondary']});
+  cvSpec._hits.push({rect:[m.l, m.t, w - m.r, h - m.b], html:''});
+  cvSpec._info = {X:X, Y:Y, max:max, T:T, L0:L0, L1:L1};
+}
+function specRatio(T){ return planck(450, T)/planck(650, T); }
+function update2(){
+  var T = S2.T, cl = classOf(T);
+  $('#sT').value = posOf(T);
+  $('#sTout').textContent = fmtInt(T) + ' K';
+  $('#tK').textContent = fmtInt(T) + ' K';
+  $('#tC').textContent = '약 ' + fmtInt(T - 273.15) + ' °C';
+  $('#tName').textContent = cl.name;
+  $('#tClass').textContent = cl.k + '형 · ' + cl.rng;
+  var r = specRatio(T), txt;
+  if (r > 0.9 && r < 1.1) txt = '<strong>파란 빛과 붉은 빛</strong>이 <strong>비슷하게</strong> 나와요.';
+  else if (r >= 1.1) txt = '<strong>파란 빛</strong>이 붉은 빛보다 약 <strong>' + fix(r, 1) + '배</strong> 많이 나와요.';
+  else txt = '<strong>붉은 빛</strong>이 파란 빛보다 약 <strong>' + fix(1/r, 1) + '배</strong> 많이 나와요.';
+  $('#specInfo').innerHTML = txt + ' <span class="muted">표면 온도가 높을수록 파란 빛의 비율이 커지고, 낮을수록 붉은 빛의 비율이 커져요.</span>';
+  updateStarButtons(); drawStarCanvas(); drawSpec();
+}
+function animateT(to, dur, label){
+  cancelAnimationFrame(S2.anim);
+  var from = S2.T, t0 = performance.now();
+  S2.preset = label || null;
+  function step(t){
+    var k = Math.min(1, (t - t0)/dur), e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k + 2, 2)/2;
+    S2.T = Math.exp(Math.log(from) + (Math.log(to) - Math.log(from))*e);
+    if (k >= 1) S2.T = to;
+    update2();
+    if (k < 1) S2.anim = requestAnimationFrame(step);
+  }
+  S2.anim = requestAnimationFrame(step);
+}
+function buildStarButtons(){
+  $('#starBtns').innerHTML = PRESETS.map(function(s){ return '<button type="button" class="btn" data-n="' + s.n + '" aria-pressed="false">' + s.n + '</button>'; }).join('');
+  $$('#starBtns .btn').forEach(function(b){
+    b.addEventListener('click', function(){
+      var s = PRESETS.filter(function(x){ return x.n === b.dataset.n; })[0];
+      animateT(s.T, 700, s.n);
+    });
+  });
+  $('#clsStrip').innerHTML = CLASSES.map(function(c){
+    return '<button type="button" class="cls" data-k="' + c.k + '" aria-pressed="false"><span class="l">' + c.k + '형</span><span class="sw" style="background:' + rgb(starColor(c.c)) + '"></span><span class="n">' + c.name + '</span><br><span class="r">' + c.rng + '</span></button>';
+  }).join('');
+  $$('#clsStrip .cls').forEach(function(b){
+    b.addEventListener('click', function(){
+      var c = CLASSES.filter(function(x){ return x.k === b.dataset.k; })[0];
+      animateT(c.c, 600, null);
+    });
+  });
+}
+$('#sT').addEventListener('input', function(e){
+  cancelAnimationFrame(S2.anim); S2.T = tOf(Number(e.target.value)); S2.preset = null; update2();
+});
+$('#btnSunDown').addEventListener('click', function(){ sunDown(); });
+$('#btnSunReset').addEventListener('click', function(){ animateT(5800, 800, '태양'); });
+function sunDown(){
+  S2.T = 5800; S2.preset = '태양'; update2();
+  setTimeout(function(){ animateT(3300, 4500, '태양 (온도를 낮추는 중)'); }, 400);
+}
+cvSpec.addEventListener('pointermove', function(e){
+  var inf = cvSpec._info; if (!inf) return;
+  var rect = cvSpec.getBoundingClientRect(), x = e.clientX - rect.left;
+  if (x < specX.l || x > rect.width - specX.r){ hideTip(); return; }
+  var lam = inf.L0 + (x - specX.l)/((rect.width - specX.r) - specX.l)*(inf.L1 - inf.L0);
+  showTip('<b>파장 ' + Math.round(lam) + ' nm</b><br>방출하는 빛의 양(상대) ' + fix(planck(lam, inf.T)/inf.max, 2), e.clientX, e.clientY);
+});
+cvSpec.addEventListener('pointerleave', hideTip);
+
+/* =========================================================
+   활동 3 : 색으로 온도 비교하기
+   ========================================================= */
+var cvGame = $('#cvGame'), cvBars = $('#cvBars');
+var GAME_STARS = STARS.filter(function(s){ return ['알데바란','리겔','베텔게우스','베가','안타레스','미르잠','웨젠','아다라','태양'].indexOf(s.n) >= 0; });
+var G = { a:null, b:null, answered:false, score:0, total:0 };
+function newPair(){
+  var a, b, tries = 0;
+  do {
+    a = GAME_STARS[Math.floor(Math.random()*GAME_STARS.length)];
+    b = GAME_STARS[Math.floor(Math.random()*GAME_STARS.length)];
+    tries++;
+  } while ((a === b || a.col === b.col || Math.max(a.tC, b.tC)/Math.min(a.tC, b.tC) < 1.5) && tries < 200);
+  G.a = a; G.b = b; G.answered = false;
+  $('#voteA').disabled = false; $('#voteB').disabled = false;
+  $('#gameInfo').innerHTML = '두 별의 색을 보고 더 뜨거운 별을 골라 보세요.';
+  drawGame();
+}
+function drawGame(){
+  var o = setupCanvas(cvGame), ctx = o.ctx, w = o.w, h = o.h;
+  bgStars(ctx, w, h, 91, 50);
+  var R = Math.min(h*0.24, w*0.12);
+  [[G.a, w*0.27, 'A'], [G.b, w*0.73, 'B']].forEach(function(s){
+    if (!s[0]) return;
+    drawStarDisc(ctx, s[1], h*0.44, R, COLOR_BY_NAME[s[0].col]);
+    text(ctx, '별 ' + s[2], s[1], h - 38, {align:'center', size:15, weight:800, color:C['text-primary']});
+    text(ctx, G.answered ? s[0].n + ' · ' + s[0].col : '색을 살펴보세요', s[1], h - 16, {align:'center', size:12, color:C['text-secondary']});
+  });
+}
+function vote(side){
+  if (G.answered) return;
+  G.answered = true; G.total++;
+  var hot = G.a.tC > G.b.tC ? 'A' : 'B', ok = side === hot;
+  if (ok) G.score++;
+  var hs = hot === 'A' ? G.a : G.b, cs = hot === 'A' ? G.b : G.a;
+  $('#gameInfo').innerHTML = (ok ? '✔ <strong>정답이에요!</strong> ' : '✘ <strong>아쉬워요.</strong> ') +
+    '별 ' + hot + '(' + hs.n + ', ' + hs.col + ')의 표면 온도는 약 ' + fmtInt(hs.tC) + ' °C, 별 ' + (hot === 'A' ? 'B' : 'A') + '(' + cs.n + ', ' + cs.col + ')는 약 ' + fmtInt(cs.tC) + ' °C예요. ' +
+    '<br>표면 온도가 높을수록 별은 <strong>파란색</strong>에 가까워요.';
+  $('#voteA').disabled = true; $('#voteB').disabled = true;
+  $('#gameScore').textContent = '맞힌 문제 ' + G.score + ' / ' + G.total;
+  drawGame();
+}
+$('#voteA').addEventListener('click', function(){ vote('A'); });
+$('#voteB').addEventListener('click', function(){ vote('B'); });
+$('#gameNext').addEventListener('click', newPair);
+
+var SORTED = STARS.slice().sort(function(a, b){ return b.tC - a.tC; });
+function drawBars(){
+  var o = setupCanvas(cvBars), ctx = o.ctx, w = o.w, h = o.h;
+  var m = {l:Math.min(150, w*0.36), r:92, t:22, b:34}, n = SORTED.length;
+  var X = makeScale(0, 25000, m.l, w - m.r), band = (h - m.t - m.b)/n, th = Math.min(20, band*0.62);
+  ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+  [0, 5000, 10000, 15000, 20000, 25000].forEach(function(v){
+    ctx.beginPath(); ctx.moveTo(X(v), m.t); ctx.lineTo(X(v), h - m.b); ctx.stroke();
+    text(ctx, fmtInt(v), X(v), h - m.b + 14, {align:'center', size:11, color:C['text-muted']});
+  });
+  text(ctx, '표면 온도 (°C, 교과서 값)', (m.l + w - m.r)/2, h - 8, {align:'center', size:12, color:C['text-secondary']});
+  text(ctx, '막대 색 = 별의 색', w - 4, 8, {align:'right', size:11, color:C['text-muted'], base:'top'});
+  SORTED.forEach(function(s, i){
+    var cy = m.t + band*(i + 0.5), c = COLOR_BY_NAME[s.col];
+    text(ctx, s.n, m.l - 10, cy - 7, {align:'right', size:13, weight:700, color:C['text-primary']});
+    text(ctx, s.col, m.l - 10, cy + 8, {align:'right', size:11, color:C['text-secondary']});
+    barH(ctx, X(0), cy - th/2, X(s.tC) - X(0), th, rgb(c));
+    text(ctx, (s.more ? '' : '약 ') + fmtInt(s.tC) + (s.more ? ' 이상' : ''), X(s.tC) + 8, cy, {size:12, weight:700, color:C['text-primary']});
+    cvBars._hits.push({rect:[0, cy - band/2, w, cy + band/2], html:'<b>' + s.n + '</b> · ' + s.col + '<br>표면 온도 ' + (s.more ? '' : '약 ') + fmtInt(s.tC) + (s.more ? ' 이상' : '') + ' °C'});
+  });
+}
+function buildTable3(){
+  $('#tbl3').innerHTML = SORTED.map(function(s){
+    return '<tr><td class="l"><b>' + s.n + '</b></td><td>' + s.col + '</td><td>' + (s.more ? '' : '약 ') + fmtInt(s.tC) + (s.more ? ' 이상' : '') + '</td></tr>';
+  }).join('');
+}
+$('#btnGoSun').addEventListener('click', function(){ showTab(2); sunDown(); });
+
+/* =========================================================
+   활동 4 : 개념 확인 문제
+   ========================================================= */
+var QUIZ = [
+  {cat:'색과 표면 온도', q:'별의 색을 이용하면 별의 무엇을 비교할 수 있을까요?',
+   o:['별까지의 거리','별의 표면 온도','별의 나이','별의 크기'], a:1,
+   e:'별의 색은 표면 온도에 따라 달라지므로, 별의 색을 이용해 별의 표면 온도를 비교할 수 있어요. [활동 ②]'},
+  {cat:'색과 표면 온도', q:'붉은색으로 보이는 별은 파란색으로 보이는 별보다 표면 온도가 어떨까요?',
+   o:['높다','낮다','같다','알 수 없다'], a:1,
+   e:'표면 온도가 낮은 별은 붉은색 빛을 많이 방출해 붉은색을 띠고, 표면 온도가 높은 별은 파란색 빛을 많이 방출해 파란색을 띠어요. (교과서 285쪽 스스로 평가)'},
+  {cat:'오개념 확인', q:'“붉은색은 따뜻한 색이니까 붉은색 별이 파란색 별보다 더 뜨겁다.” 이 말에 대한 설명으로 옳은 것은?',
+   o:['옳다. 붉은색 별이 더 뜨겁다','틀리다. 파란색 별이 붉은색 별보다 표면 온도가 높다','틀리다. 별의 색과 표면 온도는 관계가 없다','옳다. 별의 색은 밝기로만 정해진다'], a:1,
+   e:'일상에서는 붉은색을 따뜻함, 파란색을 차가움으로 표현하지만 별은 반대예요. 표면 온도가 높을수록 별의 색은 파란색에 가까워져요. [활동 ③]'},
+  {cat:'열선과 빛의 색', q:'전기난로를 켜면 열선의 색이 점차 붉은색에서 노란색으로 변해요. 그 까닭은 무엇일까요?',
+   o:['열선이 점점 식어서','열선의 온도가 높아지면서 방출하는 빛의 색이 달라져서','열선이 점점 얇아져서','빛이 열선 안쪽에서 반사되어서'], a:1,
+   e:'열선이 뜨거워지면서 열선이 방출하는 빛의 색이 붉은색에서 노란색으로 달라지기 때문이에요. 빛을 방출하는 물체는 온도에 따라 색이 달라져요. [활동 ①]'},
+  {cat:'태양', q:'태양의 표면 온도가 지금보다 내려간다면 태양의 색은 어떻게 변할까요?',
+   o:['노란색에서 더 붉어진다','노란색에서 파란색에 가까워진다','색은 변하지 않는다','흰색으로 변한다'], a:0,
+   e:'표면 온도가 낮을수록 별은 붉은색에 가까워지므로 태양의 색은 노란색에서 더 붉어질 거예요. (교과서 285쪽) [활동 ②]'},
+  {cat:'자료 해석', q:'교과서에 따르면 청백색으로 빛나는 리겔의 표면 온도는 약 12000 °C이고, 붉은색을 띠는 베텔게우스는 약 3200 °C예요. 이 자료로 알 수 있는 사실은?',
+   o:['붉은색 별이 더 뜨겁다','푸른빛이 도는 별이 붉은색 별보다 표면 온도가 높다','색과 표면 온도는 관계가 없다','리겔이 베텔게우스보다 항상 더 밝게 보인다'], a:1,
+   e:'푸른빛을 띠는 별이 붉은색을 띠는 별보다 표면 온도가 높아요. 밝기는 별까지의 거리 등에 따라 달라서 이 자료만으로는 알 수 없어요.'},
+  {cat:'온도 순서', q:'다음 별을 표면 온도가 높은 순서대로 바르게 나열한 것은? (교과서 자료: 미르잠 청백색 23000 °C · 웨젠 황백색 6000 °C · 안타레스 붉은색 3000 °C)',
+   o:['미르잠 > 웨젠 > 안타레스','안타레스 > 웨젠 > 미르잠','웨젠 > 미르잠 > 안타레스','미르잠 > 안타레스 > 웨젠'], a:0,
+   e:'청백색(미르잠) > 황백색(웨젠) > 붉은색(안타레스) 순으로 표면 온도가 높아요. 색이 파란색에 가까울수록 표면 온도가 높아요. [활동 ③]'},
+  {cat:'O / X', q:'별의 색은 별의 밝기에 따라 달라진다.',
+   o:['O','X'], a:1,
+   e:'별의 색은 별의 표면 온도에 따라 달라져요. 밝기는 별까지의 거리와 실제 밝기에 따라 달라지고, 색은 표면 온도와 관계가 있어요.'},
+  {cat:'켈빈(K)', q:'섭씨 온도(°C)에 273.15를 더하면 절대 온도(K)가 돼요. 27 °C는 약 몇 K일까요?',
+   o:['약 −246 K','약 27 K','약 300 K','약 546 K'], a:2,
+   e:'27 + 273.15 = 300.15이므로 약 300 K이에요. 절대 온도는 음수 값을 가질 수 없어요. (교과서 284쪽 ‘켈빈’)'},
+  {cat:'분광형 (심화)', q:'별의 색을 스펙트럼으로 나타내 O, B, A, F, G, K, M형으로 분류하는데, 이 순서는 표면 온도가 높은 순서예요. 표면 온도가 가장 낮은 별의 분광형은?',
+   o:['O형','A형','G형','M형'], a:3,
+   e:'O, B, A, F, G, K, M 순으로 표면 온도가 낮아져요. M형(3700 K 미만)이 가장 낮고 붉은색을 띠어요. (지도서 참고 자료, 애니 점프 캐넌의 분류)'},
+  {cat:'서술형 (스스로 점검)', essay:true, q:'태양의 색을 이용하여 추론한 태양의 표면 온도는 어느 정도일까요? 그렇게 생각한 까닭도 써 보세요.',
+   e:'예시 답안: 태양은 노란색으로 보이므로 태양의 표면 온도는 약 6000 °C이다. (지도서 ‘또 다른 평가 문항’. 교과서의 어림값이며, 천문학에서는 약 5800 K으로 나타내는 경우가 많아요.)'}
+];
+var NSCORED = QUIZ.filter(function(q){ return !q.essay; }).length;
+var S5 = { cur:0, ans:QUIZ.map(function(){ return null; }), essay:'', essayShown:false, finished:false };
+var NUMS = ['①','②','③','④'];
+function score(){ var s = 0; QUIZ.forEach(function(q, i){ if (!q.essay && S5.ans[i] === q.a) s++; }); return s; }
+function answeredCount(){ var s = 0; QUIZ.forEach(function(q, i){ if (!q.essay && S5.ans[i] !== null) s++; }); return s; }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function renderProgress(){
+  var el = $('#qProgress');
+  el.innerHTML = QUIZ.map(function(q, i){
+    var cls = []; if (i === S5.cur && !S5.finished) cls.push('cur');
+    if (!q.essay && S5.ans[i] !== null) cls.push(S5.ans[i] === q.a ? 'ok' : 'ng');
+    var aria = (i+1) + '번' + (q.essay ? ' 서술형' : '') + (S5.ans[i] === null ? '' : (S5.ans[i] === q.a ? ' 정답' : ' 오답'));
+    return '<button type="button" class="' + cls.join(' ') + '" data-i="' + i + '" aria-label="' + aria + '">' + (q.essay ? '서' : (i+1)) + '</button>';
+  }).join('') + '<button type="button" data-i="end" aria-label="결과 보기" style="width:auto; padding:0 12px; border-radius:999px">결과</button>';
+  $$('button', el).forEach(function(b){ b.addEventListener('click', function(){
+    if (b.dataset.i === 'end'){ S5.finished = true; } else { S5.finished = false; S5.cur = Number(b.dataset.i); }
+    renderQuiz();
+  }); });
+  $('#quizScoreTag').textContent = '정답 ' + score() + ' / ' + NSCORED;
+}
+function renderQuiz(){
+  renderProgress();
+  var area = $('#qArea');
+  if (S5.finished){ renderResult(area); return; }
+  var i = S5.cur, q = QUIZ[i], chosen = S5.ans[i];
+  var html = '<div class="q-cat">' + (i+1) + '번 · ' + q.cat + '</div><div class="q-text">' + q.q + '</div>';
+  if (q.essay){
+    html += '<label class="sr-only" for="essayBox">나의 답</label><textarea class="essay" id="essayBox" placeholder="나의 생각을 써 보세요.">' + escapeHtml(S5.essay) + '</textarea>' +
+      '<div class="btn-row" style="margin-top:10px"><button class="btn primary" type="button" id="btnEssay">예시 답안 보기</button></div>' +
+      (S5.essayShown ? '<div class="feedback"><div class="res">✔ 예시 답안과 비교해 보세요</div>' + q.e + '</div>' : '');
+  } else {
+    html += '<div class="opts">' + q.o.map(function(t, k){
+      var cls = 'opt', mark = '';
+      if (chosen !== null){
+        if (k === q.a){ cls += ' correct'; mark = '<span class="mark" style="color:var(--good)">✔ 정답</span>'; }
+        else if (k === chosen){ cls += ' wrong'; mark = '<span class="mark" style="color:var(--bad)">✘ 내 답</span>'; }
+      }
+      var ox = q.o.length === 2;
+      return '<button type="button" class="' + cls + '" data-k="' + k + '"' + (chosen !== null ? ' disabled' : '') + '><span class="no">' + (ox ? t : NUMS[k]) + '</span><span>' + (ox ? (t === 'O' ? '맞다' : '틀리다') : t) + '</span>' + mark + '</button>';
+    }).join('') + '</div>';
+    if (chosen !== null){
+      var ok = chosen === q.a;
+      html += '<div class="feedback' + (ok ? '' : ' ng') + '" role="status"><div class="res">' + (ok ? '✔ 정답이에요! 잘했어요.' : '✘ 아쉬워요. 정답은 ' + (q.o.length === 2 ? q.o[q.a] : NUMS[q.a]) + '이에요.') + '</div>' + q.e + '</div>';
+    }
+  }
+  html += '<div class="q-nav"><button class="btn" type="button" id="qPrev"' + (i === 0 ? ' disabled' : '') + '>◀ 이전 문제</button>' +
+    (i < QUIZ.length - 1 ? '<button class="btn primary" type="button" id="qNext">다음 문제 ▶</button>' : '<button class="btn primary" type="button" id="qEnd">결과 보기 ▶</button>') + '</div>';
+  area.innerHTML = html;
+  $$('.opt', area).forEach(function(b){ b.addEventListener('click', function(){ S5.ans[i] = Number(b.dataset.k); renderQuiz(); var fb = $('.feedback', area); if (fb) fb.scrollIntoView({block:'nearest', behavior:'smooth'}); }); });
+  var eb = $('#essayBox'); if (eb) eb.addEventListener('input', function(){ S5.essay = eb.value; });
+  var be = $('#btnEssay'); if (be) be.addEventListener('click', function(){ S5.essayShown = true; renderQuiz(); });
+  var p = $('#qPrev'); if (p) p.addEventListener('click', function(){ S5.cur--; renderQuiz(); });
+  var n = $('#qNext'); if (n) n.addEventListener('click', function(){ S5.cur++; renderQuiz(); });
+  var en = $('#qEnd'); if (en) en.addEventListener('click', function(){ S5.finished = true; renderQuiz(); });
+}
+function renderResult(area){
+  var s = score(), done = answeredCount();
+  var msg = s === NSCORED ? '완벽해요! 별의 색 박사예요. 🌟' : s >= NSCORED*0.75 ? '아주 잘했어요! 틀린 문제의 해설을 한 번 더 읽어 봐요.' : s >= NSCORED*0.5 ? '좋아요! 헷갈린 활동을 다시 조작해 보면 더 잘 이해할 수 있어요.' : '괜찮아요. 활동 ①~③을 다시 해 보고 도전해 봐요!';
+  var wrong = [];
+  QUIZ.forEach(function(q, i){ if (!q.essay && S5.ans[i] !== null && S5.ans[i] !== q.a) wrong.push(i+1); });
+  area.innerHTML = '<div style="text-align:center; margin:8px 0 14px"><div class="muted">' + NSCORED + '문제 중 (푼 문제 ' + done + '개)</div><div class="score-big">' + s + '개 정답</div><div>' + msg + '</div>' +
+    (wrong.length ? '<div class="small muted" style="margin-top:6px">다시 볼 문제: ' + wrong.map(function(n){ return n + '번'; }).join(', ') + '</div>' : '') +
+    (done < NSCORED ? '<div class="small muted" style="margin-top:6px">아직 풀지 않은 문제가 ' + (NSCORED - done) + '개 있어요.</div>' : '') + '</div>' +
+    '<div class="card" style="background:var(--surface-2)"><h3>📝 핵심 정리</h3><ul class="summary-list">' +
+    '<li>빛을 방출하는 물체는 <b>온도에 따라 색이 달라져요.</b> (전기난로 열선: 붉은색 → 노란색)</li>' +
+    '<li>별의 색은 <b>표면 온도</b>에 따라 달라져요. 표면 온도가 <b>높은 별은 파란색</b>, <b>낮은 별은 붉은색</b>을 띠어요.</li>' +
+    '<li>따라서 <b>별의 색을 이용해 별의 표면 온도를 비교</b>할 수 있어요.</li>' +
+    '<li>태양의 표면 온도가 내려가면 태양의 색은 노란색에서 더 <b>붉은색</b>에 가까워져요.</li>' +
+    '</ul></div>' +
+    '<div class="q-nav"><button class="btn" type="button" id="qBack">◀ 문제로 돌아가기</button><button class="btn primary" type="button" id="qReset">↺ 처음부터 다시 풀기</button></div>';
+  $('#qBack').addEventListener('click', function(){ S5.finished = false; renderQuiz(); });
+  $('#qReset').addEventListener('click', function(){ S5.cur = 0; S5.ans = QUIZ.map(function(){ return null; }); S5.essay = ''; S5.essayShown = false; S5.finished = false; renderQuiz(); });
+}
+
+/* ---------- 탭, 크기 변경, 모달 ---------- */
+var current = 1;
+var DRAW = {
+  1: function(){ update1(); },
+  2: function(){ update2(); },
+  3: function(){ drawGame(); drawBars(); },
+  4: function(){}
+};
+function showTab(n){
+  n = clamp(parseInt(n, 10) || 1, 1, 4);
+  current = n; hideTip();
+  $$('nav.tabs button').forEach(function(b){ b.setAttribute('aria-selected', b.dataset.tab === String(n) ? 'true' : 'false'); });
+  $$('.panel').forEach(function(p){ p.hidden = p.id !== 'p' + n; });
+  if (history.replaceState) history.replaceState(null, '', '#' + n);
+  DRAW[n]();
+}
+$$('nav.tabs button').forEach(function(b){
+  b.addEventListener('click', function(){ showTab(b.dataset.tab); });
+  b.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft'){
+      var n = current + (e.key === 'ArrowRight' ? 1 : -1); if (n < 1) n = 4; if (n > 4) n = 1;
+      showTab(n); $('#tab-' + n).focus(); e.preventDefault();
+    }
+  });
+});
+var rt = 0;
+window.addEventListener('resize', function(){ clearTimeout(rt); rt = setTimeout(function(){ DRAW[current](); }, 120); });
+var modal = $('#teacherModal');
+$('#btnTeacher').addEventListener('click', function(){ modal.hidden = false; $('#btnTeacherClose').focus(); });
+$('#btnTeacherClose').addEventListener('click', function(){ modal.hidden = true; $('#btnTeacher').focus(); });
+modal.addEventListener('click', function(e){ if (e.target === modal){ modal.hidden = true; } });
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !modal.hidden){ modal.hidden = true; $('#btnTeacher').focus(); } });
+$('#btnFull').addEventListener('click', function(){
+  var d = document, el = d.documentElement;
+  if (!d.fullscreenElement && !d.webkitFullscreenElement){ (el.requestFullscreen || el.webkitRequestFullscreen || function(){}).call(el); }
+  else { (d.exitFullscreen || d.webkitExitFullscreen || function(){}).call(d); }
+});
+document.addEventListener('fullscreenchange', function(){ $('#btnFull').textContent = document.fullscreenElement ? '전체 화면 끄기' : '전체 화면'; setTimeout(function(){ DRAW[current](); }, 150); });
+
+/* ---------- 초기화 ---------- */
+enableRectTips(cvBars);
+buildStarButtons(); buildTable3(); renderHRec(); renderQuiz(); newPair();
+showTab((location.hash || '#1').replace('#', ''));
+window.addEventListener('hashchange', function(){ showTab((location.hash || '#1').replace('#', '')); });
+})();
+</script>
+</body>
+</html>
