@@ -1,4 +1,4 @@
-/* 문항 데이터 검증: node science-final/tools/validate.js
+/* 문항 데이터 검증: node <앱 폴더>/tools/validate.js
  * - PDF 해답과 정답 키 대조, 보기 조합 일치·유일성, 필수 항목, 그림 키, 서술형 예시 답안 자기 점검 */
 const fs = require('fs');
 const path = require('path');
