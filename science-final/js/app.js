@@ -575,7 +575,7 @@
           </div>
           ${nBank ? `<div class="card tset">
             <div class="tset-head"><span class="tset-tag tg-bank">추가</span><b>${d.code}. ${d.title} · 추가 문제 (개념 우선 수업 순서)</b><span class="muted small">총 ${nBank}문항 · ${L.length}차시</span></div>
-            <p class="muted small tset-note">세부 주제가 겹치지 않도록 주제마다 한 문항씩 먼저 배치하고, 같은 주제의 문항은 뒤 차시로 보냈어요. 각 차시는 약 ${SF.LESSON_MIN}분 분량이에요.</p>
+            <p class="muted small tset-note">세부 주제가 겹치지 않도록 주제마다 한 문항씩 먼저 배치하고, 같은 주제의 문항은 뒤 차시로 보냈어요. 각 차시는 ${SF.LESSON_MIN}분 수업에 맞춰 도입·정리 시간을 빼고 풀이 약 ${SF.LESSON_WORK}분 분량으로 나눴어요.</p>
             <div class="lesson-list">${L.map((l) => `<div class="lesson-row"><span class="ls-no">${l.no}차시</span><span class="ls-info"><b>${l.ids.length}문항</b> · 약 ${l.min}분 · 세부 주제 ${l.nTopics}개</span><span class="ls-btns"><button class="btn btn-primary btn-sm" data-act="lesson" data-u="${x}" data-l="${l.no}" data-m="learn">함께 풀기</button><button class="btn btn-glass btn-sm" data-act="lesson" data-u="${x}" data-l="${l.no}" data-m="exam">시험</button></span></div>`).join('')}</div>
           </div>` : ''}`;
         })

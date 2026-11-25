@@ -18,6 +18,7 @@
   SF.LEVELS = { 1: '기본', 2: '보통', 3: '도전' };
   SF.SRC = { guide: '지도서 평가', bank: '추가 문제' };
   SF.LESSON_MIN = 45;
+  SF.LESSON_WORK = 40; // 도입·정리 5분을 뺀 문제 풀이 시간
 
   /* ── 세부 주제 ── */
   const TOP = window.SF_TOPICS || {};
@@ -172,14 +173,18 @@
     });
     return out;
   };
-  /* 45분 차시 단위로 나누기 */
+  /* 45분 차시 단위로 나누기: 필요한 차시 수를 먼저 정하고 차시별 분량을 고르게(마지막 차시가 너무 짧지 않게) */
   SF.lessons = function (list) {
     const ordered = SF.classOrder(list);
+    const total = ordered.reduce((a, q) => a + SF.estMin(q), 0);
+    const n = Math.max(1, Math.ceil(total / SF.LESSON_WORK));
+    const target = total / n;
     const out = [];
     let cur = null;
     ordered.forEach((q) => {
       const m = SF.estMin(q);
-      if (!cur || cur.min + m > SF.LESSON_MIN) {
+      const cap = out.length < n ? SF.LESSON_WORK : SF.LESSON_MIN; // 마지막 차시는 45분까지 허용
+      if (!cur || cur.min + m > cap || (out.length < n && cur.min + m / 2 > target)) {
         cur = { no: out.length + 1, ids: [], min: 0, topics: {} };
         out.push(cur);
       }
@@ -321,11 +326,11 @@
       const truth = SF.trueKeys(q);
       if (sameSet(chosen, truth)) return out;
       q.bogi.forEach((b) => {
-        if (chosen.includes(b.k) && !b.ok) out.push({ kind: 'mis', html: `<b>${SF.bkey(b.k)} ${b.t}</b><br>❌ 옳지 않은 진술이에요. ✅ ${b.why}` });
+        if (chosen.includes(b.k) && !b.ok) out.push({ kind: 'mis', html: `<b>${SF.bkey(b.k)} ${b.t}</b><br>❌ ${q.numbered ? '알맞지 않은 선택지예요.' : '옳지 않은 진술이에요.'} ✅ ${b.why}` });
       });
       q.bogi.forEach((b) => {
         if (!chosen.includes(b.k) && b.ok) {
-          out.push(reveal ? { kind: 'miss', html: `<b>${SF.bkey(b.k)} ${b.t}</b><br>⭕ 이 진술도 옳아요. ${b.why}` } : { kind: 'miss', html: `<b>${b.k}</b>도 다시 읽어 보세요. 옳은 진술일 수 있어요.` });
+          out.push(reveal ? { kind: 'miss', html: `<b>${SF.bkey(b.k)} ${b.t}</b><br>⭕ ${q.numbered ? '이것도 알맞은 선택지예요.' : '이 진술도 옳아요.'} ${b.why}` } : { kind: 'miss', html: `<b>${b.k}</b>도 다시 읽어 보세요. ${q.numbered ? '알맞은 선택지' : '옳은 진술'}일 수 있어요.` });
         }
       });
       return out;
