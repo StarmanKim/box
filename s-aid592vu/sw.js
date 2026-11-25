@@ -1,9 +1,9 @@
 /* 오프라인 지원: 인터넷이 되면 항상 최신 파일을 받고(네트워크 우선), 끊기면 저장해 둔 파일을 씁니다. */
-const CACHE = 'sf-app-v3';
+const CACHE = 'sf-app-v4';
 const FILES = [
   './', 'index.html', 'pc.html', 'mobile.html', 'manifest.webmanifest', 'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png',
   'css/base.css', 'css/pc.css', 'css/mobile.css',
-  'js/figures.js', 'js/data-u7.js', 'js/data-u8.js', 'js/bank-topics.js', 'js/bank-u7.js', 'js/bank-u8.js', 'js/core.js', 'js/app.js', 'js/qr.js',
+  'js/figures.js', 'js/data-u7.js', 'js/data-u8.js', 'js/bank-topics.js', 'js/bank-u7.js', 'js/bank-u8.js', 'js/core.js', 'js/app.js', 'js/qr.js', 'js/range.js', 'img/exam-range.webp',
   // 추가 문제 그림(수업 중 인터넷이 끊겨도 보이도록 미리 저장)
   'img/u7/r1-g11-1.webp', 'img/u7/r1-g23-1.webp', 'img/u7/r1-g23-2.webp', 'img/u7/r1-q01-1.webp', 'img/u7/r1-q02-1.webp', 'img/u7/r1-q03-1.webp',
   'img/u7/r1-q06-1.webp', 'img/u7/r1-q22-1.webp', 'img/u7/r2-q02-1.webp', 'img/u7/r2-q02-2.webp', 'img/u7/r2-q03-1.webp', 'img/u7/r2-q04-1.webp',

@@ -582,6 +582,16 @@
         .join('')}
     </section>`;
   }
+  /* 시험 범위 그림 카드: 누르면 전체 화면으로 크게 보기 (js/range.js) */
+  function rangeCard(where) {
+    if (!window.SF_RANGE) return '';
+    const img = `<img src="${SF_RANGE.SRC}" alt="2학년 2학기 과학 기말고사 시험 범위 안내 그림" width="1122" height="1402" loading="lazy">`;
+    if (where === 'side')
+      return `<div class="side-range"><div class="side-title small">시험 범위</div><button class="range-thumb crop" data-act="range" aria-label="시험 범위 그림 전체 화면으로 크게 보기">${img}<span class="range-zoom">🔍 눌러서 크게 보기</span></button></div>`;
+    return `<section class="block"><h2 class="sec-title">${icon('book')} 시험 범위</h2>
+      <div class="card range-m"><button class="range-thumb" data-act="range" aria-label="시험 범위 그림 전체 화면으로 크게 보기">${img}</button>
+      <div class="range-info"><ul><li><b>Ⅶ. 전기와 자기</b><br>교과서 232~271쪽 · 학습지 1~8쪽</li><li><b>Ⅷ. 별과 우주</b><br>교과서 272~307쪽 · 학습지 1~7쪽</li></ul><button class="btn btn-tinted btn-sm" data-act="range">${icon('expand')}크게 보기</button></div></div></section>`;
+  }
   function homeView() {
     const st = store.settings;
     const u = S.unit;
@@ -645,6 +655,7 @@
         </div>
       </section>
       ${hist.length ? `<section class="block"><h2 class="sec-title">최근 실전 시험 <button class="link" data-act="go-history">전체 기록 ${icon('next')}</button></h2>${historyChart(hist.slice(-8))}<p class="muted small">마지막 점수 ${lastRec.pct}점 (${lastRec.grade}) · ${SF.fmtDate(lastRec.date)}</p></section>` : ''}
+      ${isPC ? '' : rangeCard('home')}
       <p class="foot-note">문항 출처: 교사용 지도서 Ⅶ·Ⅷ 단원 평가 문항, 중간·기말 대비 평가 1~5회(추가 문제). 기록은 이 기기의 브라우저에만 저장됩니다. ${isPC ? `<a href="mobile.html">모바일 버전</a>` : `<a href="pc.html">PC 버전</a>`}</p>`;
   }
 
@@ -897,7 +908,8 @@
       <button class="side-link" data-act="start-learn">${icon('person')}<span>함께 풀기</span></button>
       <button class="side-link" data-act="start-exam">${icon('timer')}<span>실전 시험</span></button>
       <div class="side-sep"></div>
-      <div class="side-tip card">${icon('info')}<p>${S.teacher ? '교사 모드: 문제 풀이 중 오른쪽 위에서 <b>시간을 멈추거나</b> 카운트다운을 정할 수 있어요.' : '수업 시간에는 <b>함께 풀기</b>로 한 문제씩 풀고, 집에서는 <b>실전 시험</b>으로 실력을 확인해 보세요.'}</p></div>`;
+      <div class="side-tip card">${icon('info')}<p>${S.teacher ? '교사 모드: 문제 풀이 중 오른쪽 위에서 <b>시간을 멈추거나</b> 카운트다운을 정할 수 있어요.' : '수업 시간에는 <b>함께 풀기</b>로 한 문제씩 풀고, 집에서는 <b>실전 시험</b>으로 실력을 확인해 보세요.'}</p></div>
+      ${rangeCard('side')}`;
   }
   function renderInspector() {
     if (!isPC) return;
@@ -1466,6 +1478,7 @@
         go('home');
         break;
       case 'route': go(v); break;
+      case 'range': if (window.SF_RANGE) SF_RANGE.open(); break;
       case 'unit':
         S.unit = v;
         store.set('unit', v);
