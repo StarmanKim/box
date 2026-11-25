@@ -104,7 +104,11 @@
         q.type = 'mc';
         q.neg = !!it.neg;
         if (it.bg) q.bogi = mkBogi(it.bg);
-        if (typeof it.o === 'string') q.options = it.o.split('|').map((s) => SF_comboFmt(s));
+        if (it.oi) q.options = Array.from({ length: it.oi }, (_, i) => {
+          const f = it.fb && it.fb[i + 1];
+          return { t: (it.o && it.o[i]) || '', img: `img/${rd.unit}/r${rd.round}-q${pad2(it.n)}-o${i + 1}.webp`, fb: q.neg ? null : f || null, why: q.neg ? f || null : null };
+        });
+        else if (typeof it.o === 'string') q.options = it.o.split('|').map((s) => SF_comboFmt(s));
         else q.options = it.o.map((t, i) => {
           const f = it.fb && it.fb[i + 1];
           return { t: fixText(t), fb: q.neg ? null : f || null, why: q.neg ? f || null : null };

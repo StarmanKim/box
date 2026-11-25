@@ -276,7 +276,7 @@
     const fin = learn && isFinal(st);
     const show = fin; // 정답 공개 여부
     if (q.type === 'mc') {
-      const hasFig = q.options.some((o) => o.fig);
+      const hasFig = q.options.some((o) => o.fig || o.img);
       return `<div class="options ${hasFig ? 'has-fig' : ''} ${SF.isCombo(q) ? 'combo' : ''}" role="radiogroup" aria-label="선택지">${q.options
         .map((o, i) => {
           const text = typeof o === 'string' ? o : o.t;
@@ -291,7 +291,7 @@
             cls = 'was-wrong';
             mark = '<span class="opt-note">앞에서 고른 답</span>';
           }
-          const body = o.fig ? `<span class="opt-fig">${miniFig(o.figArgs)}</span>` : `<span class="opt-text">${text}</span>`;
+          const body = o.img ? `<span class="opt-fig opt-img"><img src="${o.img}" alt="${SF.circled(i)} 그림" loading="lazy">${text ? `<span>${text}</span>` : ''}</span>` : o.fig ? `<span class="opt-fig">${miniFig(o.figArgs)}</span>` : `<span class="opt-text">${text}</span>`;
           return `<button class="opt ${cls}" role="radio" aria-checked="${sel}" aria-pressed="${sel}" data-act="pick" data-i="${i}" ${fin ? 'disabled' : ''}><span class="num">${SF.circled(i)}</span>${body}${mark}</button>`;
         })
         .join('')}</div>`;

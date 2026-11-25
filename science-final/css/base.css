@@ -631,3 +631,5 @@ kbd { font-family: var(--font); font-size: .75rem; font-weight: 700; padding: .0
 .cbar.static:hover { background: transparent; }
 .q-lead { margin: 0 0 .8rem; padding: .7rem .9rem; border-radius: var(--r-md); background: var(--fill2); font-weight: 600; font-size: 1rem; }
 .lead-tag { display: inline-block; font-size: .72rem; font-weight: 800; color: #fff; background: var(--label3); padding: .05rem .5rem; border-radius: 999px; margin-right: .45rem; vertical-align: .1em; }
+.opt-img { background: #fff; border-radius: .7rem; padding: .3rem; text-align: center; }
+.opt-img img { display: block; max-width: 100%; max-height: 10rem; margin: 0 auto; object-fit: contain; }
