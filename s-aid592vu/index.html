@@ -41,10 +41,13 @@
   .howto { margin-top: 1rem; }
   .howto h3 { margin: 0 0 .5rem; font-size: 1.05rem; }
   .howto ol { margin: 0; padding-left: 1.2rem; color: var(--label2); }
+  .range { display: grid; grid-template-columns: 15rem 1fr; gap: 1.3rem; align-items: center; margin-top: 1rem; }
   .foot { text-align: center; color: var(--label2); font-size: .8rem; margin-top: 1.5rem; }
   @media (max-width: 720px) {
     .choose, .feat { grid-template-columns: 1fr; }
     .qr-card { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+    .range { grid-template-columns: 1fr; }
+    .range .range-thumb { max-width: 24rem; width: 100%; justify-self: center; }
   }
 </style>
 </head>
@@ -98,9 +101,22 @@
     </ol>
   </section>
 
+  <section class="range card" aria-label="시험 범위">
+    <button type="button" class="range-thumb" data-range-open aria-label="시험 범위 그림 전체 화면으로 크게 보기"><img src="img/exam-range.webp" alt="2학년 2학기 과학 기말고사 시험 범위 안내 그림" width="1122" height="1402" loading="lazy"><span class="range-zoom">🔍 눌러서 크게 보기</span></button>
+    <div class="range-info">
+      <h3>📌 2학기 과학 기말고사 시험 범위</h3>
+      <ul>
+        <li><b>Ⅶ. 전기와 자기</b> · 교과서 232~271쪽 · 학습지 1~8쪽</li>
+        <li><b>Ⅷ. 별과 우주</b> · 교과서 272~307쪽 · 학습지 1~7쪽</li>
+      </ul>
+      <p>그림을 누르면 화면 전체로 크게 볼 수 있어요.</p>
+    </div>
+  </section>
+
   <p class="foot">기록은 각 기기의 브라우저에만 저장되며 서버로 보내지 않아요.</p>
 </div>
 <script src="js/qr.js"></script>
+<script src="js/range.js"></script>
 <script>
 (function () {
   var dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
