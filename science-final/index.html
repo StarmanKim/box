@@ -113,7 +113,9 @@
   document.getElementById(mobile ? 'v-mo' : 'v-pc').appendChild(rec);
   // QR 코드 (인터넷 주소로 열었을 때만)
   var card = document.getElementById('qr-card');
-  if (location.protocol === 'http:' || location.protocol === 'https:') {
+  var framed = false;
+  try { framed = window.self !== window.top; } catch (e) { framed = true; }
+  if ((location.protocol === 'http:' || location.protocol === 'https:') && !framed) {
     var url = new URL('mobile.html', location.href).href;
     document.getElementById('qr').innerHTML = window.SF_QR.toSVG(url, { label: '모바일 버전 주소 QR 코드' });
     document.getElementById('qr-url').textContent = url;
@@ -122,13 +124,13 @@
       (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(function () { b.textContent = '복사했어요 ✓'; }, function () { b.textContent = '복사가 안 되면 주소를 길게 눌러 복사하세요'; });
     });
   } else {
-    card.querySelector('h2').textContent = '📱 QR 코드는 인터넷 주소로 열었을 때 나타나요';
-    card.querySelector('.muted').textContent = '지금은 파일로 열려 있어요. GitHub Pages 같은 웹 주소(https://…)로 열면 학생용 QR 코드가 자동으로 만들어져요.';
+    card.querySelector('h2').textContent = '📱 QR 코드는 웹 주소로 직접 열었을 때 나타나요';
+    card.querySelector('.muted').textContent = (framed ? '지금은 미리보기 창 안에서 열려 있어요.' : '지금은 파일로 열려 있어요.') + ' GitHub Pages 같은 웹 주소(https://…)로 직접 열면 학생용 QR 코드가 자동으로 만들어져요.';
     document.getElementById('qr').style.display = 'none';
     document.getElementById('qr-url').style.display = 'none';
     document.getElementById('copy').style.display = 'none';
   }
-  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});
+  try { if ('serviceWorker' in navigator && location.protocol === 'https:' && !framed) navigator.serviceWorker.register('sw.js').catch(function () {}); } catch (e) {}
 })();
 </script>
 </body>

@@ -11,11 +11,21 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
   const esc = SF.esc;
+  // 보안 샌드박스(미리보기 창, 일부 학교 브라우저)에서는 저장소·주소 변경이 막힐 수 있어 모두 안전하게 감쌉니다.
+  const ss = {
+    get(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { sessionStorage.setItem(k, v); } catch (e) { /* 미지원 */ } },
+    del(k) { try { sessionStorage.removeItem(k); } catch (e) { /* 미지원 */ } }
+  };
+  const hist = {
+    push(st, url) { try { history.pushState(st, '', url); } catch (e) { /* 미지원 */ } },
+    replace(st, url) { try { history.replaceState(st, '', url); } catch (e) { /* 미지원 */ } }
+  };
 
   const S = {
     route: 'home',
     unit: ['u7', 'u8', 'all'].includes(store.settings.unit) ? store.settings.unit : 'u7',
-    teacher: sessionStorage.getItem('sf.teacher') === '1',
+    teacher: ss.get('sf.teacher') === '1',
     s: null, // 진행 중 세션
     timer: null,
     learnPreset: 0, // 함께 풀기 문항별 카운트다운(ms), 0 = 스톱워치
@@ -907,7 +917,7 @@
   function go(route, push) {
     S.route = route;
     S.showHint = false;
-    if (push !== false) history.pushState({ route }, '', '#' + route);
+    if (push !== false) hist.push({ route }, '#' + route);
     render();
     window.scrollTo({ top: 0 });
     const m = $('#main');
@@ -1187,7 +1197,7 @@
       confirmSheet({ title: '교사 모드를 끌까요?', msg: '시간 멈춤, 정답 공개, 카운트다운 기능이 숨겨져요.', ok: '끄기', icon: 'person' }).then((ok) => {
         if (!ok) return;
         S.teacher = false;
-        sessionStorage.removeItem('sf.teacher');
+        ss.del('sf.teacher');
         if (S.timer && !S.timer.running && S.route === 'quiz') S.timer.start();
         if (S.s) S.s.paused = false;
         S.teacherPaused = false;
@@ -1213,7 +1223,7 @@
       if (code.length === 4) {
         if (code === String(store.settings.pin || SF.TEACHER_PIN_DEFAULT)) {
           S.teacher = true;
-          sessionStorage.setItem('sf.teacher', '1');
+          ss.set('sf.teacher', '1');
           closeSheet();
           render();
           toast('교사 모드가 켜졌어요. 시간 멈춤·정답 공개를 쓸 수 있어요.');
@@ -1497,8 +1507,8 @@
       }
       case 'fullscreen':
         try {
-          if (document.fullscreenElement) document.exitFullscreen();
-          else document.documentElement.requestFullscreen();
+          const pr = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+          if (pr && pr.catch) pr.catch(() => toast('이 화면에서는 전체 화면을 쓸 수 없어요. 브라우저의 F11 키를 눌러 보세요.'));
         } catch (err) { toast('이 브라우저는 전체 화면을 지원하지 않아요.'); }
         break;
       case 'timer-toggle': timerToggle(); break;
@@ -1602,13 +1612,13 @@
   /* 시작 */
   applyTheme();
   applyScale();
-  history.replaceState({ route: 'home' }, '', location.pathname + location.search);
+  hist.replace({ route: 'home' }, location.pathname + location.search);
   render();
   if (!store.ok) toast('이 브라우저에서는 기록을 저장할 수 없어요(사생활 보호 모드 등).', 'warn');
 
   // 오프라인 사용(홈 화면 추가)을 위한 서비스 워커
-  if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  }
+  try {
+    if ('serviceWorker' in navigator && location.protocol === 'https:' && window.self === window.top) navigator.serviceWorker.register('sw.js').catch(() => {});
+  } catch (e) { /* 샌드박스 등에서는 오프라인 기능 없이 동작 */ }
   window.SF_APP = { S, render, go };
 })();
