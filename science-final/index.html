@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light" data-unit="all">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F2F2F7">
+<meta name="description" content="중학교 과학 2학기 기말고사 대비 개념 확인 · 정리 웹앱 — PC 버전과 모바일 버전">
+<title>기말고사 과학 개념 확인 · 정리</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  body { display: flex; justify-content: center; padding: max(1.5rem, env(safe-area-inset-top)) 1rem 2rem; }
+  .wrap { width: 100%; max-width: 62rem; }
+  .top { display: flex; align-items: center; gap: .9rem; margin: .5rem 0 1.2rem; }
+  .app-ic { width: 4rem; height: 4rem; border-radius: 1.1rem; box-shadow: 0 10px 24px rgba(94, 92, 230, .3); flex: none; }
+  .top h1 { margin: 0; font-size: clamp(1.7rem, 4vw, 2.4rem); letter-spacing: -.03em; line-height: 1.15; }
+  .top p { margin: .2rem 0 0; color: var(--label2); }
+  .choose { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+  .ver { position: relative; display: flex; flex-direction: column; gap: .5rem; padding: 1.5rem; text-decoration: none; color: var(--label); transition: transform .35s var(--pop); }
+  .ver:active { transform: scale(.98); }
+  .ver .vi { width: 3.2rem; height: 3.2rem; border-radius: 1rem; display: grid; place-items: center; color: #fff; }
+  .ver .vi .ic { width: 1.7rem; height: 1.7rem; }
+  .ver.pc .vi { background: linear-gradient(135deg, #64D2FF, #007AFF); }
+  .ver.mo .vi { background: linear-gradient(135deg, #FFB340, #FF7A59); }
+  .ver h2 { margin: .3rem 0 0; font-size: 1.4rem; letter-spacing: -.02em; }
+  .ver ul { margin: 0; padding-left: 1.1rem; color: var(--label2); font-size: .95rem; }
+  .ver .go { margin-top: auto; align-self: flex-start; }
+  .rec { position: absolute; top: 1rem; right: 1rem; background: var(--green); color: #fff; font-size: .75rem; font-weight: 800; padding: .2rem .6rem; border-radius: 999px; }
+  .qr-card { display: grid; grid-template-columns: auto 1fr; gap: 1.5rem; align-items: center; margin-top: 1rem; }
+  .qr-box { width: 12rem; height: 12rem; background: #fff; border-radius: 1.2rem; padding: .5rem; box-shadow: var(--shadow); }
+  .qr-svg { width: 100%; height: 100%; display: block; }
+  .qr-card h2 { margin: 0 0 .4rem; font-size: 1.3rem; }
+  .url { font-size: .85rem; color: var(--label2); word-break: break-all; background: var(--fill2); padding: .5rem .7rem; border-radius: .7rem; margin: .6rem 0; }
+  .feat { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; margin-top: 1rem; }
+  .feat .card { padding: 1rem 1.1rem; }
+  .feat b { display: flex; gap: .4rem; align-items: center; margin-bottom: .25rem; }
+  .feat p { margin: 0; font-size: .9rem; color: var(--label2); }
+  .howto { margin-top: 1rem; }
+  .howto h3 { margin: 0 0 .5rem; font-size: 1.05rem; }
+  .howto ol { margin: 0; padding-left: 1.2rem; color: var(--label2); }
+  .foot { text-align: center; color: var(--label2); font-size: .8rem; margin-top: 1.5rem; }
+  @media (max-width: 720px) {
+    .choose, .feat { grid-template-columns: 1fr; }
+    .qr-card { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  }
+</style>
+</head>
+<body>
+<div class="bg" aria-hidden="true"></div>
+<div class="wrap">
+  <header class="top">
+    <img class="app-ic" src="icon.svg" alt="">
+    <div>
+      <h1>기말고사 과학 개념 확인 · 정리</h1>
+      <p>중학교 과학 · Ⅶ 전기와 자기 · Ⅷ 별과 우주</p>
+    </div>
+  </header>
+
+  <section class="choose" aria-label="버전 선택">
+    <a class="ver pc card" href="pc.html" id="v-pc">
+      <span class="vi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span>
+      <h2>PC 버전</h2>
+      <ul><li>전자칠판·프로젝터로 <b>함께 풀기</b></li><li>왼쪽 문항 목록 · 오른쪽 해설 패널</li><li>글자 크게(수업용 150%) · 전체 화면 · 단축키</li></ul>
+      <span class="btn btn-primary go">PC 버전 열기</span>
+    </a>
+    <a class="ver mo card" href="mobile.html" id="v-mo">
+      <span class="vi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>
+      <h2>모바일 버전</h2>
+      <ul><li>학생 스마트폰으로 <b>혼자 풀기</b></li><li>한 손으로 누르는 하단 버튼 · 바텀 시트</li><li>홈 화면에 추가하면 앱처럼 사용</li></ul>
+      <span class="btn btn-primary go" style="--tint: var(--orange)">모바일 버전 열기</span>
+    </a>
+  </section>
+
+  <section class="qr-card card" id="qr-card" aria-label="모바일 접속 QR 코드">
+    <div class="qr-box" id="qr"></div>
+    <div>
+      <h2>📱 스마트폰 카메라로 찍으면 바로 열려요</h2>
+      <p class="muted">수업 중 화면에 띄워 두면 학생들이 모바일 버전으로 바로 들어올 수 있어요.</p>
+      <div class="url" id="qr-url"></div>
+      <button class="btn btn-glass btn-sm" id="copy">주소 복사</button>
+    </div>
+  </section>
+
+  <section class="feat" aria-label="주요 기능">
+    <div class="card"><b>🧩 오개념 → 정개념</b><p>틀리면 고른 답에 맞춘 피드백을 보여 주고 한 번 더 풀 기회를 줘요.</p></div>
+    <div class="card"><b>🌱🌿🌳 수준별 해설</b><p>기초 · 표준 · 심화 해설과 핵심 개념 카드로 스스로 정리해요.</p></div>
+    <div class="card"><b>⏱ 실전 시험 · 재시험</b><p>시간을 재며 풀고 채점 → 성취수준 → 틀린 문제만 재시험.</p></div>
+  </section>
+
+  <section class="howto card">
+    <h3>홈 화면에 추가하기 (앱처럼 쓰기)</h3>
+    <ol>
+      <li><b>아이폰(Safari)</b>: 아래쪽 공유 버튼 → ‘홈 화면에 추가’</li>
+      <li><b>안드로이드(Chrome)</b>: 오른쪽 위 ⋮ 메뉴 → ‘홈 화면에 추가’ 또는 ‘앱 설치’</li>
+    </ol>
+  </section>
+
+  <p class="foot">기록은 각 기기의 브라우저에만 저장되며 서버로 보내지 않아요.</p>
+</div>
+<script src="js/qr.js"></script>
+<script>
+(function () {
+  var dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
+  try { var st = JSON.parse(localStorage.getItem('sciFinal.v1') || '{}').settings || {}; if (st.theme === 'dark') dark = true; if (st.theme === 'light') dark = false; } catch (e) {}
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  // 기기에 맞는 버전 추천
+  var mobile = (matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820) || /iPhone|Android.+Mobile/.test(navigator.userAgent);
+  var rec = document.createElement('span');
+  rec.className = 'rec';
+  rec.textContent = '이 기기에 추천';
+  document.getElementById(mobile ? 'v-mo' : 'v-pc').appendChild(rec);
+  // QR 코드 (인터넷 주소로 열었을 때만)
+  var card = document.getElementById('qr-card');
+  var framed = false;
+  try { framed = window.self !== window.top; } catch (e) { framed = true; }
+  if ((location.protocol === 'http:' || location.protocol === 'https:') && !framed) {
+    var url = new URL('mobile.html', location.href).href;
+    document.getElementById('qr').innerHTML = window.SF_QR.toSVG(url, { label: '모바일 버전 주소 QR 코드' });
+    document.getElementById('qr-url').textContent = url;
+    document.getElementById('copy').addEventListener('click', function () {
+      var b = this;
+      (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(function () { b.textContent = '복사했어요 ✓'; }, function () { b.textContent = '복사가 안 되면 주소를 길게 눌러 복사하세요'; });
+    });
+  } else {
+    card.querySelector('h2').textContent = '📱 QR 코드는 웹 주소로 직접 열었을 때 나타나요';
+    card.querySelector('.muted').textContent = (framed ? '지금은 미리보기 창 안에서 열려 있어요.' : '지금은 파일로 열려 있어요.') + ' GitHub Pages 같은 웹 주소(https://…)로 직접 열면 학생용 QR 코드가 자동으로 만들어져요.';
+    document.getElementById('qr').style.display = 'none';
+    document.getElementById('qr-url').style.display = 'none';
+    document.getElementById('copy').style.display = 'none';
+  }
+  try { if ('serviceWorker' in navigator && location.protocol === 'https:' && !framed) navigator.serviceWorker.register('sw.js').catch(function () {}); } catch (e) {}
+})();
+</script>
+</body>
+</html>
