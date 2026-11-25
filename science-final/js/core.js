@@ -240,8 +240,8 @@
   SF.normShort = function (s, unit) {
     let t = String(s == null ? '' : s).normalize('NFC').trim().toLowerCase();
     t = t.replace(/\s+/g, '').replace(/[−–—]/g, '-').replace(/,/g, '').replace(/[()（）]/g, '');
-    // 기호 나열(ㄹ-ㅁ-ㄱ, ㄹ→ㅁ→ㄱ, ㄹ<ㅁ<ㄱ)은 구분 기호를 무시
-    t = t.replace(/([ㄱ-ㅎ])[-→<>~·.]+(?=[ㄱ-ㅎ])/g, '$1');
+    // 기호·이름 나열(ㄹ-ㅁ-ㄱ, 스피카→베가, ㄹ<ㅁ<ㄱ)은 구분 기호를 무시
+    t = t.replace(/([가-힣ㄱ-ㅎ])[-→<>~·./]+(?=[가-힣ㄱ-ㅎ])/g, '$1');
     (UNIT_ALIAS[unit] || (unit ? [unit.toLowerCase()] : [])).forEach((al) => {
       if (t.endsWith(al)) t = t.slice(0, -al.length);
     });
