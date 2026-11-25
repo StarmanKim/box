@@ -12,18 +12,35 @@
     achieve: { label: '학업 성취도', short: '실력', color: '#007AFF' },
     essay: { label: '서술형·논술형', short: '서술형', color: '#AF52DE' }
   };
+  SF.SETS.bank = { label: '추가 문제', short: '추가', color: '#FF9500' };
   SF.SET_ORDER = ['basic', 'achieve', 'essay'];
   SF.ESSAY_SCORE = { 상: 1, 중: 0.5, 하: 0, 0: 0 };
+  SF.LEVELS = { 1: '기본', 2: '보통', 3: '도전' };
+  SF.SRC = { guide: '지도서 평가', bank: '추가 문제' };
+  SF.LESSON_MIN = 45;
+  SF.LESSON_WORK = 40; // 도입·정리 5분을 뺀 문제 풀이 시간
+
+  /* ── 세부 주제 ── */
+  const TOP = window.SF_TOPICS || {};
+  const GTOP = window.SF_GUIDE_TOPICS || {};
+  SF.topics = TOP;
+  SF.TOPIC_ORDER = { u7: [], u8: [] };
+  Object.keys(TOP).forEach((t) => SF.TOPIC_ORDER[TOP[t].u] && SF.TOPIC_ORDER[TOP[t].u].push(t));
+  SF.topic = (q) => TOP[q.topic] || null;
 
   /* ── 문항 색인 ── */
   const QMAP = {};
+  const fixText = (t) => (typeof t === 'string' ? t.replace(/<보기>/g, '〈보기〉') : t);
   SF.UNITS.forEach((u) => {
     const d = DATA[u];
     if (!d) return;
-    const fix = (t) => (typeof t === 'string' ? t.replace(/<보기>/g, '〈보기〉') : t);
+    const fix = fixText;
     d.questions.forEach((q, i) => {
       q.unit = u;
       q.order = i;
+      q.src = 'guide';
+      q.round = 0;
+      q.topic = GTOP[q.id] || null;
       q.stem = fix(q.stem);
       q.hint = fix(q.hint);
       if (q.exp) Object.keys(q.exp).forEach((k) => (q.exp[k] = fix(q.exp[k])));
@@ -34,10 +51,150 @@
       QMAP[q.id] = q;
     });
   });
+  /* ── 추가 문제(문제 은행) 변환: 간단한 입력 형식 → 화면이 쓰는 문항 형식 ── */
+  const KEYS = 'ㄱㄴㄷㄹㅁㅂ';
+  const BANK = { u7: [], u8: [] };
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const NUMS = '①②③④⑤⑥⑦⑧';
+  const mkBogi = (bg, keys) => bg.map(([t, ok, why], i) => ({ k: (keys || KEYS)[i], t: fixText(t), ok: !!ok, why: why || '' }));
+  const shiftKeys = (o) => {
+    const r = {};
+    Object.keys(o || {}).forEach((k) => (r[+k - 1] = o[k]));
+    return r;
+  };
+  (window.SF_BANK || []).forEach((rd) => {
+    // 공통 자료 범위(예: [11~13])
+    const gr = {};
+    rd.items.forEach((it) => { if (it.g) gr[it.g] = gr[it.g] ? [Math.min(gr[it.g][0], it.n), Math.max(gr[it.g][1], it.n)] : [it.n, it.n]; });
+    rd.items.forEach((it, idx) => {
+      const grp = it.g ? rd.groups[it.g] : null;
+      const tp = TOP[it.t] || {};
+      const imgs = [];
+      const addImgs = (spec, tag) => {
+        if (!spec) return;
+        const caps = Array.isArray(spec) ? spec : new Array(spec).fill('');
+        caps.forEach((cap, k) => imgs.push({ src: `img/${rd.unit}/r${rd.round}-${tag}-${k + 1}.webp`, cap }));
+      };
+      if (grp) addImgs(grp.img, it.g);
+      addImgs(it.img, 'q' + pad2(it.n));
+      const tb = it.tb || (grp && grp.tb);
+      const box = [grp && grp.x, it.x].filter(Boolean).join('<hr>');
+      const lead = grp && grp.s ? `[${gr[it.g][0]}~${gr[it.g][1]}] ${grp.s}` : null;
+      const q = {
+        id: `${rd.unit}-r${rd.round}-${pad2(it.n)}`,
+        src: 'bank', set: 'bank', unit: rd.unit, round: rd.round, n: it.n, order: rd.round * 100 + it.n,
+        no: `${rd.round}회 ${it.n}번`, topic: it.t, concept: tp.c, level: it.l || 2,
+        stem: fixText(it.s), lead: lead ? fixText(lead) : null, box: box || null, img: imgs.length ? imgs : null,
+        table: tb ? { head: tb[0], rows: tb.slice(1) } : null,
+        hint: fixText(it.h || tp.h || ''), key: it.k || tp.k || '', fix: it.fix || null,
+        exp: { basic: fixText(it.b || tp.b || ''), standard: fixText(it.ex || ''), advanced: fixText(it.ad || tp.ad || '') }
+      };
+      if (it.es) {
+        q.type = 'essay';
+        q.conds = it.es.c || null;
+        q.essay = { model: it.es.m, groups: it.es.g.map(([label, ...res]) => ({ label, all: res })), levels: { 상: it.es.lv[0], 중: it.es.lv[1] }, rubric: { 상: it.es.r[0], 중: it.es.r[1], 하: it.es.r[2] } };
+      } else if (it.sa) {
+        q.type = 'short';
+        q.short = { ans: it.sa, unit: it.su || '', wrong: it.sw || {} };
+      } else if (it.sl) {
+        q.type = 'blanks';
+        q.slots = it.sl.map(([label, ch, ans, fb]) => ({ label, choices: ch.split('|'), answer: ans - 1, fb: shiftKeys(fb) }));
+      } else if (it.mu) {
+        q.type = 'multi';
+        q.numbered = it.mu === 'num'; // '모두 고르면?'처럼 ①~⑤ 선택지에서 여러 개 고르기
+        q.bogi = mkBogi(it.bg, q.numbered ? NUMS : KEYS);
+      } else {
+        q.type = 'mc';
+        q.neg = !!it.neg;
+        if (it.bg) q.bogi = mkBogi(it.bg);
+        if (it.oi) q.options = Array.from({ length: it.oi }, (_, i) => {
+          const f = it.fb && it.fb[i + 1];
+          return { t: (it.o && it.o[i]) || '', img: `img/${rd.unit}/r${rd.round}-q${pad2(it.n)}-o${i + 1}.webp`, fb: q.neg ? null : f || null, why: q.neg ? f || null : null };
+        });
+        else if (typeof it.o === 'string') q.options = it.o.split('|').map((s) => SF_comboFmt(s));
+        else q.options = it.o.map((t, i) => {
+          const f = it.fb && it.fb[i + 1];
+          return { t: fixText(t), fb: q.neg ? null : f || null, why: q.neg ? f || null : null };
+        });
+        q.answer = it.a - 1;
+      }
+      BANK[rd.unit].push(q);
+      QMAP[q.id] = q;
+    });
+  });
+  function SF_comboFmt(s) {
+    return s.split(',').map((x) => x.trim()).join(', ');
+  }
+  SF.bank = BANK;
+  SF.bkey = (k) => (/[ㄱ-ㅎ]/.test(k) ? k + '.' : k);
   SF.data = DATA;
   SF.unit = (u) => DATA[u];
   SF.q = (id) => QMAP[id];
   SF.unitLabel = (u) => (u === 'all' ? '전체 (Ⅶ + Ⅷ)' : `${DATA[u].code}. ${DATA[u].title}`);
+  SF.qTitle = (q) => `${DATA[q.unit].code} ${q.src === 'bank' ? '추가 ' + q.no : q.no + '번'}`;
+  SF.levelName = (q) => SF.LEVELS[q.level] || '';
+  /* 모든 문항(지도서 + 추가) */
+  SF.all = (unit) => {
+    const units = unit === 'all' || !unit ? SF.UNITS : [unit];
+    let list = [];
+    units.forEach((u) => (list = list.concat(DATA[u].questions, BANK[u])));
+    return list;
+  };
+  /* 학생용 무작위 출제 대상 */
+  SF.pool = function (o) {
+    let list = SF.all(o.unit);
+    if (o.srcs) list = list.filter((q) => o.srcs.includes(q.src));
+    if (o.level && o.level !== 'all') list = list.filter((q) => q.level === +o.level);
+    if (o.essay === false) list = list.filter((q) => q.type !== 'essay');
+    if (o.concept) list = list.filter((q) => q.concept === o.concept);
+    return list;
+  };
+  /* ── 수업 순서: 세부 주제를 한 바퀴씩 돌며(개념이 겹치지 않게) 쉬운 문항부터 ── */
+  SF.estMin = (q) => (q.type === 'essay' ? 3.5 : [0, 1.2, 1.6, 2.2][q.level || 2]) + (q.img ? 0.2 : 0);
+  SF.classOrder = function (list) {
+    const out = [];
+    const units = SF.UNITS.filter((u) => list.some((q) => q.unit === u));
+    units.forEach((u) => {
+      const order = SF.TOPIC_ORDER[u].slice();
+      const by = {};
+      order.forEach((t) => (by[t] = []));
+      list.filter((q) => q.unit === u).forEach((q) => {
+        const t = q.topic && by[q.topic] ? q.topic : '_';
+        if (!by[t]) { by[t] = []; order.push(t); }
+        by[t].push(q);
+      });
+      Object.keys(by).forEach((t) => by[t].sort((a, b) => (a.type === 'essay') - (b.type === 'essay') || a.level - b.level || a.round - b.round || a.order - b.order));
+      for (let k = 0, more = true; more; k++) {
+        more = false;
+        order.forEach((t) => {
+          if (by[t][k]) { out.push(by[t][k]); more = true; }
+        });
+      }
+    });
+    return out;
+  };
+  /* 45분 차시 단위로 나누기: 필요한 차시 수를 먼저 정하고 차시별 분량을 고르게(마지막 차시가 너무 짧지 않게) */
+  SF.lessons = function (list) {
+    const ordered = SF.classOrder(list);
+    const total = ordered.reduce((a, q) => a + SF.estMin(q), 0);
+    const n = Math.max(1, Math.ceil(total / SF.LESSON_WORK));
+    const target = total / n;
+    const out = [];
+    let cur = null;
+    ordered.forEach((q) => {
+      const m = SF.estMin(q);
+      const cap = out.length < n ? SF.LESSON_WORK : SF.LESSON_MIN; // 마지막 차시는 45분까지 허용
+      if (!cur || cur.min + m > cap || (out.length < n && cur.min + m / 2 > target)) {
+        cur = { no: out.length + 1, ids: [], min: 0, topics: {} };
+        out.push(cur);
+      }
+      cur.ids.push(q.id);
+      cur.min += m;
+      cur.topics[q.topic] = 1;
+    });
+    out.forEach((l) => { l.min = Math.round(l.min); l.nTopics = Object.keys(l.topics).length; });
+    return out;
+  };
   SF.concept = (q) => {
     const d = DATA[q.unit];
     return d.concepts.find((c) => c.id === q.concept);
@@ -79,8 +236,32 @@
       case 'multi': return Array.isArray(r.k) && r.k.length > 0;
       case 'blanks': return Array.isArray(r.s) && q.slots.every((_, i) => Number.isInteger(r.s[i]));
       case 'essay': return !!(r.t && r.t.trim().length >= 2);
+      case 'short': return !!(r.t && r.t.trim().length >= 1);
       default: return false;
     }
+  };
+  /* 단답형 정규화: 공백·단위·기호 차이를 무시하고 비교 */
+  const UNIT_ALIAS = { 'Ω': ['ω', 'Ω', '옴', 'ohm'], pc: ['pc', '파섹'], A: ['a', '암페어'], mA: ['ma'], V: ['v', '볼트'], W: ['w', '와트'], Wh: ['wh'], kWh: ['kwh'], 원: ['원'], '″': ['″', '"', '초'], 등급: ['등급'], 배: ['배'], 광년: ['광년'] };
+  SF.normShort = function (s, unit) {
+    let t = String(s == null ? '' : s).normalize('NFC').trim().toLowerCase();
+    t = t.replace(/\s+/g, '').replace(/[−–—]/g, '-').replace(/,/g, '').replace(/[()（）]/g, '');
+    // 기호·이름 나열(ㄹ-ㅁ-ㄱ, 스피카→베가, ㄹ<ㅁ<ㄱ)은 구분 기호를 무시
+    t = t.replace(/([가-힣ㄱ-ㅎ])[-→<>~·./]+(?=[가-힣ㄱ-ㅎ])/g, '$1');
+    (UNIT_ALIAS[unit] || (unit ? [unit.toLowerCase()] : [])).forEach((al) => {
+      if (t.endsWith(al)) t = t.slice(0, -al.length);
+    });
+    return t;
+  };
+  SF.shortOk = function (q, text) {
+    const u = q.short.unit;
+    const t = SF.normShort(text, u);
+    if (!t) return false;
+    return q.short.ans.some((a) => {
+      const n = SF.normShort(a, u);
+      if (n === t) return true;
+      const x = parseFloat(n), y = parseFloat(t);
+      return /^-?[0-9.]+$/.test(n) && /^-?[0-9.]+$/.test(t) && Math.abs(x - y) < 1e-9;
+    });
   };
   SF.isPartlyAnswered = function (q, r) {
     if (!r) return false;
@@ -105,6 +286,10 @@
         const ok = slots.every((x) => x === true);
         return { ok, score: ok ? 1 : 0, slots };
       }
+      case 'short': {
+        const ok = SF.shortOk(q, r.t);
+        return { ok, score: ok ? 1 : 0 };
+      }
       case 'essay': {
         if (!SF.isAnswered(q, r)) return { ok: false, score: 0 };
         if (!r.self) return { ok: false, score: 0, pending: true };
@@ -122,6 +307,10 @@
     if (q.type === 'mc' && !SF.isCombo(q)) {
       if (r.c === q.answer || !Number.isInteger(r.c)) return out;
       const o = q.options[r.c];
+      if (q.src === 'bank' && !q.neg && o.fb) {
+        out.push({ kind: 'mis', html: `<span class="fb-chosen">고른 답: ${SF.circled(r.c)} ${o.t}</span>✅ ${o.fb}` });
+        return out;
+      }
       if (q.neg && o.why) {
         out.push({ kind: 'neg', html: `<b>${SF.circled(r.c)}은(는) 옳은 설명이에요.</b> ${o.why} 이 문제는 <u>옳지 않은</u> 것을 찾는 문제예요.` });
       } else if (o.fb) {
@@ -137,20 +326,28 @@
       const truth = SF.trueKeys(q);
       if (sameSet(chosen, truth)) return out;
       q.bogi.forEach((b) => {
-        if (chosen.includes(b.k) && !b.ok) out.push({ kind: 'mis', html: `<b>${b.k}. ${b.t}</b><br>❌ 옳지 않은 진술이에요. ✅ ${b.why}` });
+        if (chosen.includes(b.k) && !b.ok) out.push({ kind: 'mis', html: `<b>${SF.bkey(b.k)} ${b.t}</b><br>❌ ${q.numbered ? '알맞지 않은 선택지예요.' : '옳지 않은 진술이에요.'} ✅ ${b.why}` });
       });
       q.bogi.forEach((b) => {
         if (!chosen.includes(b.k) && b.ok) {
-          out.push(reveal ? { kind: 'miss', html: `<b>${b.k}. ${b.t}</b><br>⭕ 이 진술도 옳아요. ${b.why}` } : { kind: 'miss', html: `<b>${b.k}</b>도 다시 읽어 보세요. 옳은 진술일 수 있어요.` });
+          out.push(reveal ? { kind: 'miss', html: `<b>${SF.bkey(b.k)} ${b.t}</b><br>⭕ ${q.numbered ? '이것도 알맞은 선택지예요.' : '이 진술도 옳아요.'} ${b.why}` } : { kind: 'miss', html: `<b>${b.k}</b>도 다시 읽어 보세요. ${q.numbered ? '알맞은 선택지' : '옳은 진술'}일 수 있어요.` });
         }
       });
+      return out;
+    }
+    if (q.type === 'short') {
+      if (!r.t || SF.shortOk(q, r.t)) return out;
+      const key = SF.normShort(r.t, q.short.unit);
+      const w = Object.keys(q.short.wrong).find((k) => SF.normShort(k, q.short.unit) === key);
+      out.push({ kind: 'mis', html: `<span class="fb-chosen">쓴 답: ${SF.esc(r.t)}</span>${w ? '✅ ' + q.short.wrong[w] : '정답과 달라요. 단위와 계산 과정을 다시 확인해 보세요.'}${reveal ? `<br><span class="fb-ans">정답: ${q.short.ans[0]} ${q.short.unit}</span>` : ''}` });
       return out;
     }
     if (q.type === 'blanks') {
       const s = r.s || [];
       q.slots.forEach((sl, i) => {
         if (!Number.isInteger(s[i]) || s[i] === sl.answer) return;
-        const fb = sl.fb && sl.fb[s[i]];
+        let fb = sl.fb && sl.fb[s[i]];
+        if (fb && q.src === 'bank') fb = '✅ ' + fb;
         const head = `<b>${sl.label}</b> — 고른 답: ${sl.choices[s[i]]}`;
         out.push({ kind: 'mis', html: `${head}<br>${fb || '다시 생각해 보세요.'}${reveal ? `<br><span class="fb-ans">정답: ${sl.choices[sl.answer]}</span>` : ''}` });
       });
@@ -168,6 +365,8 @@
         return SF.trueKeys(q).join(', ');
       case 'blanks':
         return q.slots.map((s) => `${s.label.replace(/\s*\(.*$/, '')}: ${s.choices[s.answer]}`).join(' · ');
+      case 'short':
+        return `${q.short.ans[0]}${q.short.unit ? ' ' + q.short.unit : ''}`;
       case 'essay':
         return '예시 답안 참고';
     }
@@ -183,6 +382,7 @@
       case 'blanks':
         return q.slots.map((s, i) => `${s.label.replace(/\s*\(.*$/, '')}: ${Number.isInteger(r.s[i]) ? s.choices[r.s[i]] : '—'}`).join(' · ');
       case 'essay':
+      case 'short':
         return r.t;
     }
     return '';
@@ -208,6 +408,16 @@
     return { g: 'E', msg: '지금부터가 시작이에요. 기초 해설부터 차근차근 다시 풀면 분명 올라가요.', color: '#FF3B30' };
   };
 
+  /* 난이도별 결과로 현재 수준과 다음 단계 추천 */
+  SF.levelAdvice = function (lv) {
+    const p = (k) => (lv[k] && lv[k].n ? lv[k].e / lv[k].n : null);
+    const b = p(1), m = p(2), h = p(3);
+    if (h != null && h >= 0.8) return { tag: '도전 단계 통과', msg: '도전 문항까지 잘 해결했어요! 서술형과 오답 노트로 완벽하게 다듬어 봐요.' };
+    if (m != null && m >= 0.8) return { tag: '보통 단계 통과', msg: '보통 문항을 잘 해결했어요. 수준을 ‘도전’으로 올려 실력을 확인해 보세요.' };
+    if (b != null && b >= 0.8) return { tag: '기본 단계 통과', msg: '기본 개념이 잡혔어요. 수준을 ‘보통’으로 올려 도전해 보세요.' };
+    if (b != null) return { tag: '기본 다지기', msg: '‘기본’ 수준 연습하기로 개념 정리 카드와 기초 해설을 함께 보며 다시 풀어 봐요.' };
+    return { tag: '계속 도전', msg: '틀린 문제의 해설을 확인하고 ‘기본’ 수준부터 차근차근 다시 풀어 봐요.' };
+  };
   SF.fmtTime = function (ms) {
     const s = Math.max(0, Math.floor(ms / 1000));
     const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
@@ -236,7 +446,7 @@
 
   /* ── 저장소 (이 기기의 브라우저에만 저장) ── */
   const defaults = () => ({
-    settings: { theme: 'auto', scale: 1, expLevel: 'standard', sound: true, pin: SF.TEACHER_PIN_DEFAULT, shuffle: false, limit: 0, sets: ['basic', 'achieve', 'essay'], unit: 'u7' },
+    settings: { theme: 'auto', scale: 1, expLevel: 'standard', sound: true, pin: SF.TEACHER_PIN_DEFAULT, shuffle: false, limit: 0, sets: ['basic', 'achieve', 'essay'], unit: 'u7', level: 'all', count: 20, srcs: ['guide', 'bank'], essay: true, guideOrder: 'book' },
     history: [],
     wrong: {},
     session: null
@@ -414,6 +624,7 @@
   SF.finishExam = function (s, timeMs) {
     const items = [];
     const per = {};
+    const lv = {};
     let earned = 0;
     s.qids.forEach((id) => {
       const q = SF.q(id);
@@ -424,6 +635,9 @@
       const c = per[q.concept] || (per[q.concept] = { e: 0, n: 0 });
       c.e += g.score;
       c.n += 1;
+      const L = lv[q.level || 2] || (lv[q.level || 2] = { e: 0, n: 0 });
+      L.e += g.score;
+      L.n += 1;
     });
     const n = s.qids.length;
     const pct = n ? Math.round((earned / n) * 1000) / 10 : 0;
@@ -440,6 +654,7 @@
       timeMs: Math.round(timeMs || 0),
       limit: s.limit,
       per,
+      lv,
       items,
       retestOf: s.retestOf
     };
@@ -449,18 +664,24 @@
   SF.summarizeLearn = function (s) {
     let first = 0, second = 0, wrong = 0, done = 0, score = 0;
     const per = {};
+    const lv = {};
     s.qids.forEach((id) => {
       const q = SF.q(id);
       const st = s.st[id] || {};
       const c = per[q.concept] || (per[q.concept] = { e: 0, n: 0 });
+      const L = lv[q.level || 2] || (lv[q.level || 2] = { e: 0, n: 0 });
       c.n += 1;
+      L.n += 1;
       if (!st.res) return;
       done += 1;
-      if (st.res === 'c1') { first++; c.e += 1; score += 1; }
-      else if (st.res === 'c2') { second++; c.e += 0.5; score += 0.5; }
-      else if (st.res === 'p') { second++; c.e += 0.5; score += 0.5; }
+      const v = st.res === 'c1' ? 1 : st.res === 'c2' || st.res === 'p' ? 0.5 : 0;
+      if (st.res === 'c1') first++;
+      else if (v) second++;
       else wrong++;
+      c.e += v;
+      L.e += v;
+      score += v;
     });
-    return { first, second, wrong, done, n: s.qids.length, per, pct: s.qids.length ? Math.round((first / s.qids.length) * 100) : 0 };
+    return { first, second, wrong, done, n: s.qids.length, per, lv, pct: s.qids.length ? Math.round((first / s.qids.length) * 100) : 0 };
   };
 })();

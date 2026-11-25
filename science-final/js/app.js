@@ -240,6 +240,7 @@
     let h = '';
     if (q.box) h += `<div class="q-box">${q.box}</div>`;
     if (q.fig) h += `<div class="q-fig ${q.fig === 'milkyWay' ? 'dark' : ''}">${fig(q.fig, q.figArgs)}</div>`;
+    if (q.img) h += `<div class="q-imgs n${q.img.length}">${q.img.map((im) => `<figure class="q-img"><img src="${im.src}" alt="문항 그림${im.cap ? ' ' + im.cap : ''}" loading="lazy" decoding="async">${im.cap ? `<figcaption>${im.cap}</figcaption>` : ''}</figure>`).join('')}</div>`;
     if (q.table) {
       h += `<div class="q-table-wrap"><table class="q-table"><thead><tr>${q.table.head.map((x) => `<th>${x}</th>`).join('')}</tr></thead><tbody>${q.table.rows
         .map((r) => `<tr>${r.map((x, i) => (i === 0 ? `<th scope="row">${x}</th>` : `<td>${x}</td>`)).join('')}</tr>`)
@@ -254,8 +255,10 @@
   function qHead(q, idx, total) {
     const c = SF.concept(q);
     const flag = S.s && S.s.mode === 'exam' ? `<button class="chip-btn ${S.s.flags[q.id] ? 'on' : ''}" data-act="flag" aria-pressed="${!!S.s.flags[q.id]}">${icon('flag')}<span>${S.s.flags[q.id] ? '표시됨' : '나중에 보기'}</span></button>` : '';
-    return `<div class="q-meta">${setBadge(q.set)}<span class="q-code">${SF.unit(q.unit).code} · ${q.no}번</span><span class="concept-chip">${c ? c.name : ''}</span>${dots(q.level)}<span class="spacer"></span>${flag}</div>
-      <h2 class="q-stem"><span class="q-num">${idx + 1}</span><span>${q.stem}</span></h2>`;
+    const tp = SF.topic(q);
+    const badge = q.src === 'bank' ? `<span class="badge set-bank">추가 ${q.round}회</span>` : setBadge(q.set);
+    return `<div class="q-meta">${badge}<span class="q-code">${SF.qTitle(q)}</span><span class="concept-chip">${tp ? tp.name : c ? c.name : ''}</span><span class="lvl-chip lv${q.level}" title="난이도">${SF.levelName(q)}</span><span class="spacer"></span>${flag}</div>
+      ${q.lead ? `<p class="q-lead"><span class="lead-tag">공통 자료</span>${q.lead}</p>` : ''}<h2 class="q-stem"><span class="q-num">${idx + 1}</span><span>${q.stem}</span></h2>`;
   }
 
   function stateOf(id) {
@@ -273,7 +276,7 @@
     const fin = learn && isFinal(st);
     const show = fin; // 정답 공개 여부
     if (q.type === 'mc') {
-      const hasFig = q.options.some((o) => o.fig);
+      const hasFig = q.options.some((o) => o.fig || o.img);
       return `<div class="options ${hasFig ? 'has-fig' : ''} ${SF.isCombo(q) ? 'combo' : ''}" role="radiogroup" aria-label="선택지">${q.options
         .map((o, i) => {
           const text = typeof o === 'string' ? o : o.t;
@@ -288,14 +291,14 @@
             cls = 'was-wrong';
             mark = '<span class="opt-note">앞에서 고른 답</span>';
           }
-          const body = o.fig ? `<span class="opt-fig">${miniFig(o.figArgs)}</span>` : `<span class="opt-text">${text}</span>`;
+          const body = o.img ? `<span class="opt-fig opt-img"><img src="${o.img}" alt="${SF.circled(i)} 그림" loading="lazy">${text ? `<span>${text}</span>` : ''}</span>` : o.fig ? `<span class="opt-fig">${miniFig(o.figArgs)}</span>` : `<span class="opt-text">${text}</span>`;
           return `<button class="opt ${cls}" role="radio" aria-checked="${sel}" aria-pressed="${sel}" data-act="pick" data-i="${i}" ${fin ? 'disabled' : ''}><span class="num">${SF.circled(i)}</span>${body}${mark}</button>`;
         })
         .join('')}</div>`;
     }
     if (q.type === 'multi') {
       const chosen = r.k || [];
-      return `<div class="q-bogi interactive"><span class="bogi-tag">보기</span><p class="bogi-help">옳은 것을 <b>모두</b> 골라 누르세요.</p>${q.bogi
+      return `<div class="q-bogi interactive"><span class="bogi-tag">${q.numbered ? '선택지' : '보기'}</span><p class="bogi-help">${q.numbered ? '알맞은 것을' : '옳은 것을'} <b>모두</b> 골라 누르세요.</p>${q.bogi
         .map((b) => {
           const on = chosen.includes(b.k);
           let cls = on ? 'on' : '';
@@ -305,7 +308,7 @@
             if (on !== b.ok) cls += ' miss';
             mark = `<span class="ox ${b.ok ? 'o' : 'x'}">${b.ok ? '⭕' : '❌'}</span>`;
           }
-          return `<button class="bogi-item ${cls}" data-act="toggle" data-k="${b.k}" aria-pressed="${on}" ${fin ? 'disabled' : ''}><span class="cbox">${icon('check')}</span><span class="bk">${b.k}.</span><span class="bt">${b.t}</span>${mark}</button>`;
+          return `<button class="bogi-item ${cls}" data-act="toggle" data-k="${b.k}" aria-pressed="${on}" ${fin ? 'disabled' : ''}><span class="cbox">${icon('check')}</span><span class="bk">${q.numbered ? b.k : b.k + '.'}</span><span class="bt">${b.t}</span>${mark}</button>`;
         })
         .join('')}</div>`;
     }
@@ -329,6 +332,12 @@
         })
         .join('')}</div>`;
     }
+    if (q.type === 'short') {
+      const g = show ? SF.grade(q, r) : null;
+      const ro = fin || (s.mode === 'exam' && s.paused);
+      const last = learn && st.prev && st.prev.length && !fin ? st.prev[st.prev.length - 1].t : null;
+      return `<div class="short ${g ? (g.ok ? 'ok' : 'bad') : ''}"><input class="short-input" data-act="short" type="text" value="${esc(r.t || '')}" placeholder="답을 입력하세요" autocomplete="off" autocapitalize="off" spellcheck="false" ${ro ? 'readonly' : ''} aria-label="단답형 답">${q.short.unit ? `<span class="short-unit">${q.short.unit}</span>` : ''}${g ? (g.ok ? icon('check', 'ok') : icon('close', 'bad')) : ''}</div>${last ? `<p class="muted small prev-ans">앞에서 쓴 답: ${esc(last)}</p>` : ''}`;
+    }
     if (q.type === 'essay') {
       const ro = learn ? st.submitted : false;
       return `<div class="essay"><textarea class="essay-input" data-act="essay" rows="${isPC ? 6 : 7}" placeholder="여기에 답안을 써 보세요. 조건과 근거를 함께 쓰면 좋아요." ${ro ? 'readonly' : ''} aria-label="서술형 답안">${esc(r.t || '')}</textarea><div class="essay-foot"><span data-essay-count>${(r.t || '').length}자</span></div></div>`;
@@ -348,7 +357,7 @@
     h += '</div>';
     if (q.bogi) {
       h += `<div class="card bogi-analysis"><h3>보기 하나씩 따져 보기</h3>${q.bogi
-        .map((b) => `<div class="ba-row ${b.ok ? 'o' : 'x'}"><span class="ba-mark">${b.ok ? '⭕' : '❌'}</span><div><b>${b.k}. ${b.t}</b><p>${b.why}</p></div></div>`)
+        .map((b) => `<div class="ba-row ${b.ok ? 'o' : 'x'}"><span class="ba-mark">${b.ok ? '⭕' : '❌'}</span><div><b>${SF.bkey(b.k)} ${b.t}</b><p>${b.why}</p></div></div>`)
         .join('')}</div>`;
     }
     if (q.type === 'mc' && q.neg) {
@@ -356,6 +365,7 @@
         .map((op, i) => `<div class="ba-row ${i === q.answer ? 'x' : 'o'}"><span class="ba-mark">${i === q.answer ? '❌' : '⭕'}</span><div><b>${SF.circled(i)} ${op.t}</b><p>${i === q.answer ? '이것이 옳지 않은 설명이에요.' : op.why || ''}</p></div></div>`)
         .join('')}</div>`;
     }
+    if (q.fix) h += `<div class="fix-note">${icon('info')}<div><b>원 자료 수정 안내</b><p>${q.fix}</p></div></div>`;
     const c = SF.concept(q);
     h += `<div class="keycard"><div class="kc-label">${icon('sparkle')} 핵심 개념 (정개념)</div><p>${q.key}</p>${c ? `<button class="btn btn-plain btn-sm" data-act="concept-sheet" data-c="${c.id}">‘${c.name}’ 개념 카드 보기 ${icon('next')}</button>` : ''}</div>`;
     return h;
@@ -502,7 +512,7 @@
       let mid = '';
       if (inQuiz) {
         const pct = Math.round(((s.idx + 1) / s.qids.length) * 100);
-        mid = `<div class="tb-mid"><div class="tb-mode">${s.mode === 'exam' ? '실전 시험' : '함께 풀기'}${s.title ? ' · ' + esc(s.title) : ''}</div><div class="progress" aria-label="진행률"><i style="width:${pct}%"></i></div><div class="tb-count">${s.idx + 1} / ${s.qids.length}</div></div>`;
+        mid = `<div class="tb-mid"><div class="tb-mode">${modeLabel(s)}${s.title ? ' · ' + esc(s.title) : ''}</div><div class="progress" aria-label="진행률"><i style="width:${pct}%"></i></div><div class="tb-count">${s.idx + 1} / ${s.qids.length}</div></div>`;
       } else mid = `<div class="tb-mid"></div>`;
       return `<button class="brand" data-act="home" aria-label="처음 화면">
           <span class="brand-ic">${icon('sparkle')}</span><span class="brand-t"><b>기말고사 과학 개념 확인</b><small>${SF.unitLabel(s ? s.unit : S.unit)}</small></span></button>
@@ -519,7 +529,7 @@
     if (inQuiz) {
       const pct = Math.round(((s.idx + 1) / s.qids.length) * 100);
       return `<div class="nb-row"><button class="icon-btn glass" data-act="exit" aria-label="나가기">${icon('close')}</button>
-        <button class="nb-center" data-act="nav-sheet"><b>${s.mode === 'exam' ? '실전 시험' : '함께 풀기'}</b><small>${s.idx + 1} / ${s.qids.length} ${icon('down')}</small></button>
+        <button class="nb-center" data-act="nav-sheet"><b>${modeLabel(s)}</b><small>${s.idx + 1} / ${s.qids.length} ${icon('down')}</small></button>
         ${timerHTML()}</div><div class="progress thin"><i style="width:${pct}%"></i></div>`;
     }
     const titles = { home: '개념 확인', notes: '개념 정리', wrong: '오답 노트', history: '나의 기록', grade: '서술형 채점', result: '시험 결과', learnResult: '학습 결과' };
@@ -529,29 +539,78 @@
   }
 
   /* ───────── 화면: 처음 ───────── */
+  function modeLabel(s) {
+    if (!s) return '';
+    if (s.mode === 'exam') return '실전 시험';
+    return s.kind === 'lesson' || s.kind === 'guide' ? '함께 풀기' : '연습하기';
+  }
+  function kindLabel(k) {
+    return { wrong: '오답 재시험', note: '오답 노트 시험', random: '무작위 시험', lesson: '수업 세트 시험', guide: '지도서 세트 시험', concept: '개념별 시험' }[k] || '전체 시험';
+  }
+  const lessonCache = {};
+  function lessonsOf(u) {
+    if (!lessonCache[u]) lessonCache[u] = SF.lessons(SF.bank[u]);
+    return lessonCache[u];
+  }
+  function guideIds(u) {
+    const list = SF.unit(u).questions.slice();
+    return (store.settings.guideOrder === 'concept' ? SF.classOrder(list) : list).map((q) => q.id);
+  }
+  function teacherPanel(u) {
+    const units = u === 'all' ? SF.UNITS : [u];
+    const order = store.settings.guideOrder || 'book';
+    return `<section class="block teacher-panel">
+      <h2 class="sec-title">${icon('person')} 교사용 수업 세트 <span class="muted small">정해진 순서대로 풀이</span></h2>
+      ${units
+        .map((x) => {
+          const d = SF.unit(x);
+          const g = d.questions;
+          const gMin = Math.round(g.reduce((a, q) => a + SF.estMin(q), 0));
+          const L = lessonsOf(x);
+          const nBank = SF.bank[x].length;
+          return `<div class="card tset">
+            <div class="tset-head"><span class="tset-tag tg-guide">지도서</span><b>${d.code}. ${d.title} · 지도서 평가 문항</b><span class="muted small">${g.length}문항 · 약 ${gMin}분</span></div>
+            <div class="tset-row"><div class="seg seg-sm" role="group" aria-label="지도서 문항 순서"><button data-act="guide-order" data-v="book" aria-pressed="${order === 'book'}">지도서 순서</button><button data-act="guide-order" data-v="concept" aria-pressed="${order === 'concept'}">개념 우선 순서</button></div>
+            <span class="spacer"></span><button class="btn btn-primary btn-sm" data-act="teach-guide" data-u="${x}" data-m="learn">${icon('person')}함께 풀기</button><button class="btn btn-glass btn-sm" data-act="teach-guide" data-u="${x}" data-m="exam">${icon('timer')}시험</button></div>
+          </div>
+          ${nBank ? `<div class="card tset">
+            <div class="tset-head"><span class="tset-tag tg-bank">추가</span><b>${d.code}. ${d.title} · 추가 문제 (개념 우선 수업 순서)</b><span class="muted small">총 ${nBank}문항 · ${L.length}차시</span></div>
+            <p class="muted small tset-note">세부 주제가 겹치지 않도록 주제마다 한 문항씩 먼저 배치하고, 같은 주제의 문항은 뒤 차시로 보냈어요. 각 차시는 ${SF.LESSON_MIN}분 수업에 맞춰 도입·정리 시간을 빼고 풀이 약 ${SF.LESSON_WORK}분 분량으로 나눴어요.</p>
+            <div class="lesson-list">${L.map((l) => `<div class="lesson-row"><span class="ls-no">${l.no}차시</span><span class="ls-info"><b>${l.ids.length}문항</b> · 약 ${l.min}분 · 세부 주제 ${l.nTopics}개</span><span class="ls-btns"><button class="btn btn-primary btn-sm" data-act="lesson" data-u="${x}" data-l="${l.no}" data-m="learn">함께 풀기</button><button class="btn btn-glass btn-sm" data-act="lesson" data-u="${x}" data-l="${l.no}" data-m="exam">시험</button></span></div>`).join('')}</div>
+          </div>` : ''}`;
+        })
+        .join('')}
+    </section>`;
+  }
   function homeView() {
     const st = store.settings;
     const u = S.unit;
-    const sets = st.sets && st.sets.length ? st.sets : SF.SET_ORDER;
-    const total = countBy(u, sets);
     const wrongN = store.wrongIds(u).length;
-    const hist = store.data.history.filter((h) => h.unit === u && h.kind === 'full');
+    const hist = store.data.history.filter((h) => h.unit === u && h.kind !== 'wrong' && h.kind !== 'note');
     const lastRec = hist[hist.length - 1];
     const sess = store.data.session;
-    const unitInfo = u === 'all' ? null : SF.unit(u);
-    const conceptN = u === 'all' ? SF.unit('u7').concepts.length + SF.unit('u8').concepts.length : unitInfo.concepts.length;
-    const setChip = (k) => {
-      const on = sets.includes(k);
-      return `<button class="set-toggle ${on ? 'on' : ''}" data-act="set" data-v="${k}" aria-pressed="${on}"><span class="dot set-${k}"></span>${SF.SETS[k].label}<b>${countBy(u, [k])}</b></button>`;
+    const conceptN = u === 'all' ? SF.unit('u7').concepts.length + SF.unit('u8').concepts.length : SF.unit(u).concepts.length;
+    const srcs = st.srcs && st.srcs.length ? st.srcs : ['guide', 'bank'];
+    const base = { unit: u, srcs, level: st.level || 'all', essay: st.essay !== false };
+    const pool = SF.pool(base);
+    const count = st.count || 0;
+    const nPick = count ? Math.min(count, pool.length) : pool.length;
+    const lvN = (lv) => SF.pool(Object.assign({}, base, { level: lv })).length;
+    const srcChip = (k) => {
+      const on = srcs.includes(k);
+      const n = SF.pool({ unit: u, srcs: [k], level: base.level, essay: base.essay }).length;
+      return `<button class="set-toggle ${on ? 'on' : ''}" data-act="src" data-v="${k}" aria-pressed="${on}"><span class="dot src-${k}"></span>${SF.SRC[k]}<b>${n}</b></button>`;
     };
+    const lvls = [['all', '전체'], [1, '기본'], [2, '보통'], [3, '도전']];
+    const counts = [10, 20, 30, 0];
     const limits = [0, 10, 20, 30, 45];
     return `
       <section class="hero">
         <p class="eyebrow">2학기 기말고사 대비 · 중학교 과학</p>
         <h1 class="large-title" id="large-title">개념 확인 · 정리</h1>
-        <p class="sub">한 문제씩 풀고, 틀리면 오개념을 바로잡고, 실전처럼 채점해 실력을 올려요.</p>
+        <p class="sub">수준을 골라 무작위로 풀고, 틀리면 오개념을 바로잡고, 실전처럼 채점해 실력을 올려요.</p>
       </section>
-      ${sess ? `<button class="resume card" data-act="resume"><span class="resume-ic">${icon('refresh')}</span><span class="resume-t"><b>이어서 풀기</b><small>${SF.unitLabel(sess.unit)} · ${sess.mode === 'exam' ? '실전 시험' : '함께 풀기'} · ${sess.idx + 1}/${sess.qids.length}번</small></span>${icon('next')}</button>` : ''}
+      ${sess ? `<button class="resume card" data-act="resume"><span class="resume-ic">${icon('refresh')}</span><span class="resume-t"><b>이어서 풀기</b><small>${SF.unitLabel(sess.unit)} · ${modeLabel(sess)}${sess.title ? ' · ' + esc(sess.title) : ''} · ${sess.idx + 1}/${sess.qids.length}번</small></span>${icon('next')}</button>` : ''}
       <section class="block">
         <h2 class="sec-title">단원 선택</h2>
         <div class="unit-cards">
@@ -559,30 +618,34 @@
             .map((v) => {
               const on = S.unit === v;
               const d = v === 'all' ? null : SF.unit(v);
-              return `<button class="unit-card ${on ? 'on' : ''} uc-${v}" data-act="unit" data-v="${v}" aria-pressed="${on}"><span class="uc-ic">${v === 'u7' ? icon('bolt') : v === 'u8' ? icon('sparkle') : icon('book')}</span><span class="uc-code">${d ? d.code : 'Ⅶ + Ⅷ'}</span><span class="uc-title">${d ? d.title : '두 단원 전체'}</span><span class="uc-n">${countBy(v)}문항</span>${on ? `<span class="uc-check">${icon('check')}</span>` : ''}</button>`;
+              return `<button class="unit-card ${on ? 'on' : ''} uc-${v}" data-act="unit" data-v="${v}" aria-pressed="${on}"><span class="uc-ic">${v === 'u7' ? icon('bolt') : v === 'u8' ? icon('sparkle') : icon('book')}</span><span class="uc-code">${d ? d.code : 'Ⅶ + Ⅷ'}</span><span class="uc-title">${d ? d.title : '두 단원 전체'}</span><span class="uc-n">${SF.all(v).length}문항</span>${on ? `<span class="uc-check">${icon('check')}</span>` : ''}</button>`;
             })
             .join('')}
         </div>
       </section>
+      ${S.teacher ? teacherPanel(u) : ''}
       <section class="block">
-        <h2 class="sec-title">무엇을 할까요?</h2>
+        <h2 class="sec-title">${S.teacher ? '학생용 화면 (무작위 출제)' : '무엇을 할까요?'}</h2>
         <div class="mode-grid">
           <button class="mode-card card" data-act="go-notes"><span class="mc-ic c-teal">${icon('book')}</span><b>개념 정리</b><small>핵심 개념 ${conceptN}개와 오개념 → 정개념 카드</small></button>
-          <button class="mode-card card" data-act="start-learn"><span class="mc-ic c-green">${icon('person')}</span><b>함께 풀기</b><small>한 문제씩 · 틀리면 오개념 피드백 · 수준별 해설</small></button>
-          <button class="mode-card card" data-act="start-exam"><span class="mc-ic c-orange">${icon('timer')}</span><b>실전 시험</b><small>시간 측정 · 채점 · 성취수준 확인 · 재시험</small></button>
+          <button class="mode-card card" data-act="start-learn"><span class="mc-ic c-green">${icon('pencil')}</span><b>연습하기</b><small>무작위 한 문제씩 · 틀리면 오개념 피드백 · 수준별 해설</small></button>
+          <button class="mode-card card" data-act="start-exam"><span class="mc-ic c-orange">${icon('timer')}</span><b>실전 시험</b><small>무작위 출제 · 시간 측정 · 채점 · 수준 진단 · 재시험</small></button>
           <button class="mode-card card" data-act="go-wrong"><span class="mc-ic c-red">${icon('refresh')}</span><b>오답 노트 ${wrongN ? `<span class="count">${wrongN}</span>` : ''}</b><small>${wrongN ? '틀린 문제만 모아 다시 도전' : '아직 틀린 문제가 없어요'}</small></button>
         </div>
       </section>
       <section class="block">
-        <h2 class="sec-title">문제 구성 <span class="muted">${total}문항</span></h2>
+        <h2 class="sec-title">수준별 문제 구성 <span class="muted">무작위 출제</span></h2>
         <div class="list card">
-          <div class="row wrap"><span class="row-label">문항 유형</span><div class="set-toggles">${SF.SET_ORDER.map(setChip).join('')}</div></div>
-          <div class="row"><span class="row-label">문항 순서 섞기</span><label class="switch"><input type="checkbox" data-act="shuffle" ${st.shuffle ? 'checked' : ''}><span></span></label></div>
+          <div class="row wrap"><span class="row-label">수준</span><div class="seg seg-sm" role="group" aria-label="수준">${lvls.map(([v, l]) => `<button data-act="level" data-v="${v}" aria-pressed="${String(st.level || 'all') === String(v)}">${l} <small class="segn">${lvN(v)}</small></button>`).join('')}</div></div>
+          <div class="row wrap"><span class="row-label">문항 수</span><div class="seg seg-sm" role="group" aria-label="문항 수">${counts.map((c) => `<button data-act="count" data-v="${c}" aria-pressed="${count === c}">${c ? c + '문항' : '전체'}</button>`).join('')}</div></div>
+          <div class="row wrap"><span class="row-label">문제 범위</span><div class="set-toggles">${['guide', 'bank'].map(srcChip).join('')}</div></div>
+          <div class="row"><span class="row-label">서술형 포함</span><label class="switch"><input type="checkbox" data-act="essay-inc" ${base.essay ? 'checked' : ''}><span></span></label></div>
           <div class="row wrap"><span class="row-label">실전 시험 제한 시간</span><div class="seg seg-sm" role="group" aria-label="제한 시간">${limits.map((m) => `<button data-act="limit" data-v="${m}" aria-pressed="${(st.limit || 0) === m}">${m ? m + '분' : '없음'}</button>`).join('')}</div></div>
+          <div class="row pick-sum">${icon('sparkle')}<span>조건에 맞는 <b>${pool.length}문항</b> 중 <b>${nPick}문항</b>을 풀 때마다 무작위 순서로 골라 출제해요.</span></div>
         </div>
       </section>
       ${hist.length ? `<section class="block"><h2 class="sec-title">최근 실전 시험 <button class="link" data-act="go-history">전체 기록 ${icon('next')}</button></h2>${historyChart(hist.slice(-8))}<p class="muted small">마지막 점수 ${lastRec.pct}점 (${lastRec.grade}) · ${SF.fmtDate(lastRec.date)}</p></section>` : ''}
-      <p class="foot-note">문항 출처: 교사용 지도서 Ⅶ·Ⅷ 단원 평가 문항(그림은 같은 내용을 담아 새로 그림). 기록은 이 기기의 브라우저에만 저장됩니다. ${isPC ? `<a href="mobile.html">모바일 버전</a>` : `<a href="pc.html">PC 버전</a>`}</p>`;
+      <p class="foot-note">문항 출처: 교사용 지도서 Ⅶ·Ⅷ 단원 평가 문항, 중간·기말 대비 평가 1~5회(추가 문제). 기록은 이 기기의 브라우저에만 저장됩니다. ${isPC ? `<a href="mobile.html">모바일 버전</a>` : `<a href="pc.html">PC 버전</a>`}</p>`;
   }
 
   function historyChart(list) {
@@ -605,7 +668,7 @@
           const d = SF.unit(u);
           return `<h2 class="sec-title unit-h">${d.code}. ${d.title}</h2><div class="notes-grid">${d.concepts
             .map((c, i) => {
-              const n = SF.select({ unit: u, concept: c.id }).length;
+              const n = SF.pool({ unit: u, concept: c.id }).length;
               return `<article class="note card" id="note-${c.id}"><header><span class="note-no">${i + 1}</span><h3>${c.name}</h3></header><ul class="note-points">${c.points.map((p) => `<li>${p}</li>`).join('')}</ul>${c.mis && c.mis.length ? `<div class="misfix"><div class="mf-title">오개념 → 정개념</div>${c.mis.map((m) => `<div class="mf-row"><span class="mf-x">❌ ${m[0]}</span><span class="mf-o">✅ ${m[1]}</span></div>`).join('')}</div>` : ''}<button class="btn btn-tinted btn-sm" data-act="start-concept" data-c="${c.id}" data-u="${u}">${icon('pencil')}관련 문제 ${n}개 풀기</button></article>`;
             })
             .join('')}</div>`;
@@ -625,7 +688,7 @@
     const rows = ids
       .map((id) => SF.q(id))
       .sort((a, b) => (a.unit + a.order > b.unit + b.order ? 1 : -1))
-      .map((q) => `<button class="row wrong-row" data-act="wrong-one" data-id="${q.id}"><span class="badge set-${q.set}">${SF.SETS[q.set].short}</span><span class="wr-t"><b>${SF.unit(q.unit).code} ${q.no}번 · ${SF.concept(q).name}</b><small>${q.stem.replace(/<[^>]+>/g, '').slice(0, 60)}…</small></span><span class="wr-n">${store.data.wrong[q.id].n}회</span>${icon('next')}</button>`)
+      .map((q) => `<button class="row wrong-row" data-act="wrong-one" data-id="${q.id}"><span class="badge set-${q.set}">${SF.SETS[q.set].short}</span><span class="wr-t"><b>${SF.qTitle(q)} · ${SF.concept(q).name}</b><small>${q.stem.replace(/<[^>]+>/g, '').slice(0, 60)}…</small></span><span class="wr-n">${store.data.wrong[q.id].n}회</span>${icon('next')}</button>`)
       .join('');
     return `<section class="hero compact"><h1 class="large-title" id="large-title">오답 노트</h1><p class="sub">틀린 문제를 다시 풀어 맞히면 ‘극복’으로 옮겨져요.</p>${unitPicker('seg-unit')}</section>
       <div class="stat-row"><div class="stat card"><b>${ids.length}</b><span>다시 풀 문제</span></div><div class="stat card"><b>${fixed}</b><span>극복한 문제</span></div></div>
@@ -639,7 +702,7 @@
       ${list.length ? historyChart(list.slice(0, 10).reverse()) + `<div class="list card">${list
         .map((h) => {
           const lv = SF.levelOf(h.pct);
-          return `<div class="row hist-row"><span class="grade-dot" style="background:${lv.color}">${h.grade}</span><span class="wr-t"><b>${h.pct}점 · ${h.n}문항 중 ${Math.round(h.earned * 10) / 10}점</b><small>${SF.unitLabel(h.unit)} · ${h.kind === 'wrong' ? '오답 재시험' : h.kind === 'note' ? '오답 노트 시험' : '전체 시험'} · ${SF.fmtDuration(h.timeMs)} · ${SF.fmtDate(h.date)}</small></span></div>`;
+          return `<div class="row hist-row"><span class="grade-dot" style="background:${lv.color}">${h.grade}</span><span class="wr-t"><b>${h.pct}점 · ${h.n}문항 중 ${Math.round(h.earned * 10) / 10}점</b><small>${SF.unitLabel(h.unit)} · ${kindLabel(h.kind)} · ${SF.fmtDuration(h.timeMs)} · ${SF.fmtDate(h.date)}</small></span></div>`;
         })
         .join('')}</div>` : `<div class="empty card">${icon('chart')}<p>아직 실전 시험 기록이 없어요.</p><button class="btn btn-primary" data-act="start-exam">실전 시험 보기</button></div>`}`;
   }
@@ -698,7 +761,7 @@
         .map((q) => {
           const r = s.resp[q.id] || {};
           const empty = !SF.isAnswered(q, r);
-          return `<article class="card grade-item" id="g-${q.id}"><div class="q-meta">${setBadge(q.set)}<span class="q-code">${SF.unit(q.unit).code} · ${q.no}번</span></div><h3 class="g-stem">${q.stem}</h3><div class="my-ans"><span class="muted small">내 답안</span><p>${empty ? '<i class="muted">작성하지 않았어요 (0점)</i>' : esc(r.t)}</p></div>${empty ? '' : essayPanel(q, r, null, true)}</article>`;
+          return `<article class="card grade-item" id="g-${q.id}"><div class="q-meta">${setBadge(q.set)}<span class="q-code">${SF.qTitle(q)}</span></div><h3 class="g-stem">${q.stem}</h3><div class="my-ans"><span class="muted small">내 답안</span><p>${empty ? '<i class="muted">작성하지 않았어요 (0점)</i>' : esc(r.t)}</p></div>${empty ? '' : essayPanel(q, r, null, true)}</article>`;
         })
         .join('')}
       <div class="btn-row center"><button class="btn btn-primary btn-lg" data-act="grade-done">${icon('chart')}채점 완료하고 결과 보기</button></div>`;
@@ -724,6 +787,19 @@
       })
       .join('')}</div>`;
   }
+  function levelSection(lv) {
+    if (!lv || !Object.keys(lv).length) return '';
+    const adv = SF.levelAdvice(lv);
+    const rows = [1, 2, 3]
+      .filter((k) => lv[k] && lv[k].n)
+      .map((k) => {
+        const p = Math.round((lv[k].e / lv[k].n) * 100);
+        const col = p >= 80 ? 'var(--green)' : p >= 60 ? 'var(--orange)' : 'var(--red)';
+        return `<div class="cbar static"><span class="cb-name"><span class="lvl-chip lv${k}">${SF.LEVELS[k]}</span> ${lv[k].n}문항</span><span class="cb-track"><i style="width:${Math.max(3, p)}%;background:${col}"></i></span><span class="cb-v">${p}%</span></div>`;
+      })
+      .join('');
+    return `<section class="block"><h2 class="sec-title">난이도별 정답률 · 수준 진단</h2><div class="card"><div class="advice"><span class="adv-tag">${adv.tag}</span><p>${adv.msg}</p></div><div class="cbars">${rows}</div></div></section>`;
+  }
   function resultView() {
     const { rec, s } = S.last;
     const lv = SF.levelOf(rec.pct);
@@ -744,13 +820,14 @@
         <div class="stat card"><b>${SF.fmtDuration(avg)}</b><span>문항당 평균</span></div>
       </div>
       <div class="btn-row">${wrongItems.length ? `<button class="btn btn-primary" data-act="retest-wrong">${icon('refresh')}${wrongItems.some((i) => !i.answered) ? '틀리거나 안 푼' : '틀린'} ${wrongItems.length}문항 재시험</button>` : ''}<button class="btn ${wrongItems.length ? 'btn-glass' : 'btn-primary'}" data-act="retest-all">${icon('timer')}전체 재시험</button>${wrongItems.length ? `<button class="btn btn-glass" data-act="retest-learn">${icon('person')}틀린 문제 함께 풀기</button>` : ''}</div>
+      ${levelSection(rec.lv)}
       <section class="block"><h2 class="sec-title">개념별 이해도 <span class="muted small">눌러서 개념 카드 보기</span></h2><div class="card">${conceptBars(rec.per)}</div></section>
       <section class="block"><h2 class="sec-title">문항별 결과 <span class="muted small">눌러서 해설 보기</span></h2><div class="list card">${rec.items
         .map((it, i) => {
           const q = SF.q(it.id);
           const r = s.resp[it.id];
           const st = it.ok ? 'ok' : it.score > 0 ? 'part' : 'bad';
-          return `<button class="row res-row" data-act="review" data-id="${it.id}"><span class="res-ic ${st}">${it.ok ? icon('check') : it.score > 0 ? '½' : icon('close')}</span><span class="wr-t"><b>${i + 1}. ${SF.unit(q.unit).code} ${q.no}번 · ${SF.concept(q).name}</b><small>내 답: ${esc(stripTags(SF.responseText(q, r))).slice(0, 48)}${q.type === 'essay' ? '' : ` · 정답: ${stripTags(SF.answerText(q))}`}</small></span><span class="res-time">${SF.fmtDuration(it.ms)}</span>${icon('next')}</button>`;
+          return `<button class="row res-row" data-act="review" data-id="${it.id}"><span class="res-ic ${st}">${it.ok ? icon('check') : it.score > 0 ? '½' : icon('close')}</span><span class="wr-t"><b>${i + 1}. ${SF.qTitle(q)} · ${SF.concept(q).name}</b><small>내 답: ${esc(stripTags(SF.responseText(q, r))).slice(0, 48)}${q.type === 'essay' ? '' : ` · 정답: ${stripTags(SF.answerText(q))}`}</small></span><span class="res-time">${SF.fmtDuration(it.ms)}</span>${icon('next')}</button>`;
         })
         .join('')}</div></section>
       <section class="block"><h2 class="sec-title">점수 변화</h2>${historyChart(store.data.history.filter((h) => h.unit === rec.unit).slice(-8))}</section>
@@ -788,6 +865,7 @@
       </section>
       <div class="stat-row"><div class="stat card"><b class="c-green">${sum.first}</b><span>한 번에 정답</span></div><div class="stat card"><b class="c-orange">${sum.second}</b><span>다시 풀어 정답</span></div><div class="stat card"><b class="c-red">${sum.wrong}</b><span>오답·정답 확인</span></div></div>
       <div class="btn-row">${wrongIds.length ? `<button class="btn btn-primary" data-act="learn-again" >${icon('refresh')}헷갈린 ${wrongIds.length}문항 다시 풀기</button>` : ''}<button class="btn ${wrongIds.length ? 'btn-glass' : 'btn-primary'}" data-act="start-exam">${icon('timer')}실전 시험 도전</button><button class="btn btn-glass" data-act="home">${icon('home')}처음으로</button></div>
+      ${levelSection(sum.lv)}
       <section class="block"><h2 class="sec-title">개념별 이해도</h2><div class="card">${conceptBars(sum.per)}</div></section>`;
   }
 
@@ -806,7 +884,7 @@
         const sum = SF.summarizeLearn(s);
         extra = `<div class="side-stats"><div><b class="c-green">${sum.first}</b><span>한 번에</span></div><div><b class="c-orange">${sum.second}</b><span>다시 풀어</span></div><div><b class="c-red">${sum.wrong}</b><span>오답</span></div></div><button class="btn btn-tinted w100" data-act="learn-finish">${icon('chart')}학습 마치고 결과 보기</button>`;
       }
-      el.innerHTML = `<div class="side-head"><button class="btn btn-glass btn-sm" data-act="exit">${icon('back')}나가기</button><span class="side-mode">${s.mode === 'exam' ? '실전 시험' : '함께 풀기'}</span></div><div class="side-title">${SF.unitLabel(s.unit)}</div>${navGrid()}${navLegend()}${extra}<div class="kbd-help"><b>단축키</b><span><kbd>1</kbd>~<kbd>6</kbd> 선택</span><span><kbd>Enter</kbd> ${s.mode === 'exam' ? '다음' : '제출/다음'}</span><span><kbd>←</kbd><kbd>→</kbd> 이동</span>${s.mode === 'learn' ? '<span><kbd>H</kbd> 힌트</span>' : ''}${S.teacher ? '<span><kbd>Space</kbd> 시간 멈춤</span>' : ''}</div>`;
+      el.innerHTML = `<div class="side-head"><button class="btn btn-glass btn-sm" data-act="exit">${icon('back')}나가기</button><span class="side-mode">${modeLabel(s)}</span></div><div class="side-title">${SF.unitLabel(s.unit)}</div>${navGrid()}${navLegend()}${extra}<div class="kbd-help"><b>단축키</b><span><kbd>1</kbd>~<kbd>6</kbd> 선택</span><span><kbd>Enter</kbd> ${s.mode === 'exam' ? '다음' : '제출/다음'}</span><span><kbd>←</kbd><kbd>→</kbd> 이동</span>${s.mode === 'learn' ? '<span><kbd>H</kbd> 힌트</span>' : ''}${S.teacher ? '<span><kbd>Space</kbd> 시간 멈춤</span>' : ''}</div>`;
       return;
     }
     const nav = [['home', 'home', '처음 화면'], ['notes', 'book', '개념 정리'], ['wrong', 'refresh', '오답 노트'], ['history', 'chart', '나의 기록']];
@@ -938,7 +1016,7 @@
   function startSession(o) {
     const st = store.settings;
     const sets = o.sets || (st.sets && st.sets.length ? st.sets : SF.SET_ORDER);
-    const s = SF.newSession(Object.assign({ unit: S.unit, sets, shuffle: st.shuffle }, o, { sets }));
+    const s = SF.newSession(Object.assign({ unit: S.unit, sets, shuffle: false }, o, { sets }));
     if (!s.qids.length) {
       toast('선택한 조건에 맞는 문항이 없어요. 문항 유형을 확인해 주세요.', 'warn');
       return;
@@ -949,6 +1027,20 @@
     markStart();
     saveSession();
     go('quiz');
+  }
+  /* 학생용: 수준·범위에 맞는 문항을 무작위로 골라 출제 */
+  function studentStart(mode, extra) {
+    const st = store.settings;
+    const o = Object.assign({ unit: S.unit, srcs: st.srcs && st.srcs.length ? st.srcs : ['guide', 'bank'], level: st.level || 'all', essay: st.essay !== false }, extra || {});
+    const pool = SF.pool(o);
+    if (!pool.length) {
+      toast('조건에 맞는 문항이 없어요. 수준이나 문제 범위를 바꿔 주세요.', 'warn');
+      return;
+    }
+    const n = st.count ? Math.min(st.count, pool.length) : pool.length;
+    const ids = SF.shuffle(pool).slice(0, n).map((q) => q.id);
+    const lvName = o.level === 'all' ? '전체 수준' : SF.LEVELS[o.level] + ' 수준';
+    startSession({ mode, unit: S.unit, ids, kind: o.concept ? 'concept' : 'random', title: (o.title || lvName) + ` ${ids.length}문항`, limit: mode === 'exam' ? (st.limit || 0) * 60000 : 0 });
   }
   function startTimer() {
     if (S.timer) S.timer.destroy();
@@ -1392,11 +1484,42 @@
       case 'go-notes': go('notes'); break;
       case 'go-wrong': go('wrong'); break;
       case 'go-history': go('history'); break;
-      case 'start-learn': startSession({ mode: 'learn', unit: S.unit }); break;
-      case 'start-exam': startSession({ mode: 'exam', unit: S.unit, limit: (store.settings.limit || 0) * 60000 }); break;
+      case 'start-learn': studentStart('learn'); break;
+      case 'start-exam': studentStart('exam'); break;
+      case 'level': store.set('level', v === 'all' ? 'all' : +v); render(); break;
+      case 'count': store.set('count', +v); render(); break;
+      case 'src': {
+        const cur = (store.settings.srcs && store.settings.srcs.length ? store.settings.srcs : ['guide', 'bank']).slice();
+        const nx = cur.includes(v) ? cur.filter((x) => x !== v) : cur.concat(v);
+        if (!nx.length) { toast('문제 범위를 하나 이상 골라 주세요.', 'warn'); return; }
+        store.set('srcs', ['guide', 'bank'].filter((x) => nx.includes(x)));
+        render();
+        break;
+      }
+      case 'guide-order': store.set('guideOrder', v); render(); break;
+      case 'teach-guide': {
+        const x = t.dataset.u;
+        const order = store.settings.guideOrder === 'concept' ? '개념 우선' : '지도서 순서';
+        startSession({ mode: t.dataset.m, unit: x, ids: guideIds(x), kind: 'guide', title: `지도서 평가(${order})`, limit: t.dataset.m === 'exam' ? (store.settings.limit || 0) * 60000 : 0 });
+        break;
+      }
+      case 'lesson': {
+        const x = t.dataset.u;
+        const l = lessonsOf(x).find((y) => y.no === +t.dataset.l);
+        startSession({ mode: t.dataset.m, unit: x, ids: l.ids, kind: 'lesson', title: `추가 문제 ${l.no}차시`, limit: t.dataset.m === 'exam' ? (store.settings.limit || 0) * 60000 : 0 });
+        break;
+      }
       case 'start-concept': {
         const c = SF.conceptById(t.dataset.c);
-        startSession({ mode: 'learn', unit: t.dataset.u, concept: t.dataset.c, sets: SF.SET_ORDER, shuffle: false, kind: 'concept', title: c ? c.name : '' });
+        if (S.teacher) {
+          const ids = SF.classOrder(SF.pool({ unit: t.dataset.u, concept: t.dataset.c })).map((q) => q.id);
+          startSession({ mode: 'learn', unit: t.dataset.u, ids, kind: 'lesson', title: c ? c.name : '' });
+        } else {
+          const prev = S.unit;
+          S.unit = t.dataset.u;
+          studentStart('learn', { concept: t.dataset.c, level: 'all', title: c ? c.name : '' });
+          S.unit = prev;
+        }
         break;
       }
       case 'resume': {
@@ -1531,17 +1654,18 @@
   });
   document.addEventListener('change', (e) => {
     const t = e.target;
+    if (t.dataset.act === 'essay-inc') { store.set('essay', t.checked); render(); return; }
     if (t.dataset.act === 'shuffle') store.set('shuffle', t.checked);
     if (t.dataset.act === 'sound') store.set('sound', t.checked);
   });
   document.addEventListener('input', (e) => {
     const t = e.target;
-    if (t.dataset.act !== 'essay' || !S.s) return;
+    if ((t.dataset.act !== 'essay' && t.dataset.act !== 'short') || !S.s) return;
     const q = curQ();
     if (locked(q)) return;
     resp(q).t = t.value;
     const c = $('[data-essay-count]');
-    if (c) c.textContent = t.value.length + '자';
+    if (c && t.dataset.act === 'essay') c.textContent = t.value.length + '자';
     saveSoon();
     // 버튼 상태만 갱신 (입력 중 포커스 유지)
     const btns = $$('[data-act="submit"]');
@@ -1573,6 +1697,12 @@
     if (e.key === 'Escape' && $('#overlay').firstChild) { closeSheet(); return; }
     if (S.route !== 'quiz' || !S.s || $('#overlay').firstChild) return;
     const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' && e.target.dataset.act === 'short' && e.key === 'Enter') {
+      const prim = $(isPC ? '#qact .btn-primary' : '#bottom .btn-primary');
+      if (prim && !prim.disabled) prim.click();
+      e.preventDefault();
+      return;
+    }
     if (tag === 'textarea' || tag === 'input') return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const q = curQ();
