@@ -161,6 +161,12 @@ textarea { resize: vertical; line-height: 1.6; }
 .lv-row select { border: 1px solid var(--line-strong); border-radius: 6px; padding: 2px 4px; margin-left: 4px; background: #fff; }
 .lv-text { flex: 1; min-width: 220px; background: #fff; border: 1px dashed var(--line-strong); border-radius: 7px; padding: 4px 8px; color: var(--text-2); }
 .lv-text b { color: var(--primary); margin-right: 4px; }
+.school-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 10px; margin: 6px 0; }
+.school-grid input { border: 1px solid var(--line-strong); border-radius: 8px; padding: 6px 8px; font-weight: 400; background: #fff; }
+@media (max-width: 760px) { .school-grid { grid-template-columns: 1fr 1fr; } }
+.check-table td:first-child { min-width: 260px; }
+.check-table .ok { color: var(--ok); font-weight: 700; }
+.check-table .ng { color: var(--warn); font-weight: 700; }
 .plan-list { max-height: 260px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
 .plan-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-top: 1px solid var(--line); font-size: 0.86rem; }
 .plan-row:first-child { border-top: 0; }

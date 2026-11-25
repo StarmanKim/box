@@ -98,7 +98,8 @@
       guide: [
         "진로희망분야, 각종 진로검사 및 진로상담 결과, 관심 분야 및 진로희망 관련 활동 등 진로 특성이 드러나는 사항 (p.74)",
         "진로희망(희망분야)은 특기사항 내 ‘희망분야’ 칸에 입력하며 상급학교에 제공하지 않음 (p.80)",
-        "진로희망을 정하지 못한 경우에도 입력. 예: ‘진로탐색 중임.’ (p.80)",
+        "진로희망을 정하지 못한 경우에도 입력. 예: ‘진로탐색 중임.’, ‘현재 진로희망 없음.’ — 마침표까지 입력 (p.80, 학교 연수자료)",
+        "학생의 학업 진로, 진로 관련 각종 검사를 바탕으로 입력할 수 있으며 상담 내용을 적을 수 있음 (p.81)",
         "학생의 실제적인 활동과 역할 위주: 자질·노력, 상담 결과, 참여도·의욕·태도 변화 등 (p.81)",
       ],
     },
@@ -112,6 +113,7 @@
       guide: [
         "학년 동안 지속적으로 관찰한 행동특성을 바탕으로 학생을 총체적으로 이해할 수 있는 종합의견 (p.115)",
         "모든 학생 입력. 성장 정도, 특기사항, 발전 가능성 등을 고려하여 성장을 지원하는 교육적 관점에서 작성 (p.115)",
+        "부정적인 행동특성을 입력할 때는 구체적으로 드러나도록 누가기록할 것을 권장 (p.115), 변화 가능성도 함께 기재 (학교 점검표)",
         "학기 구분 입력 시 ‘(1학기)’, ‘(2학기)’를 직접 입력 (p.116)",
         "다른 항목에 입력할 수 없는 내용(방과후학교 활동 등)은 입력 불가 (p.116)",
         "영재교육 관련 내용은 행특이 아닌 교과 세특의 ‘영재교육 기록사항’에 입력 (p.116)",
@@ -344,6 +346,10 @@
   }
 
   /* ---------- 문체·형식 점검 ---------- */
+  // 다른 프로그램에서 복사하며 섞이기 쉬운 문자: 이모지·기호 영역, 사용자 정의 영역(수식 글꼴 등), 폭 없는 공백·방향 표시, 줄/문단 구분자, BOM, 줄바꿈 없는 공백
+  const ODD_RANGES = [[0x1f000, 0x1faff], [0x2600, 0x27bf], [0xe000, 0xf8ff], [0x200b, 0x200f], [0x2028, 0x2029], [0xfeff, 0xfeff], [0x00a0, 0x00a0]];
+  const ODD_CHARS = new RegExp("[" + ODD_RANGES.map(([a, b]) => String.fromCodePoint(a) + "-" + String.fromCodePoint(b)).join("") + "]", "gu");
+
   function styleChecks(text, { names = [], areaKey } = {}) {
     const result = [];
     const t = String(text || "").trim();
@@ -353,10 +359,37 @@
     const plainEnding = sentences.filter((s) => /(?:다|요)[.!?]?$/.test(s) && !/(?:바란다)$/.test(s));
     if (plainEnding.length) {
       result.push({
-        level: "info",
-        label: "‘~다/~요’로 끝나는 문장이 있음 (학교생활기록부는 보통 ‘~함/~임’ 형태로 씀)",
+        level: "warn",
+        label: "명사형 어미(~함/~임/~음)로 끝나지 않은 문장",
+        basis: "p.30 서술형 문장은 명사형 어미로 종결",
         matches: plainEnding.slice(0, 3).map((s) => ({ match: s.slice(-12) })),
       });
+    }
+    // 특수문자·문단 구분 기호(번호) 지양 (p.30)
+    const symbolHits = [...new Set((t.match(/[•●○◦▪▫■□◆◇▶▷►★☆※◎♥♡→⇒✓✔①-⑳❶-❿]|(?:^|\n)\s*(?:[-*]|\d{1,2}[.)]|\(\d{1,2}\)|[가-하][.)])\s/gu) || []).map((x) => x.trim()))];
+    if (symbolHits.length) {
+      result.push({ level: "warn", label: "특수문자·문단 구분 기호(번호)", basis: "p.30 입력 지양", matches: symbolHits.slice(0, 4).map((m) => ({ match: m })) });
+    }
+    // 영문은 부득이한 경우만 (p.28): 일반화된 명사·단위 외 영문 단어 확인
+    const ALLOWED_EN = /^(?:CEO|PD|UCC|IT|POP|CF|TV|PAPS|SNS|PPT|AI|DNA|RNA|PC|CD|DVD|LED|USB|GPS|CCTV|SW|HW|VR|AR|3D|ICT|STEAM|[A-Za-z]|m|cm|mm|km|g|kg|mg|L|mL|kL|s|h|min|Hz|kHz|N|J|W|kW|kWh|V|A|Ω|K|Pa|hPa|mol|pH)$/;
+    const enWords = [...new Set((t.match(/[A-Za-z][A-Za-z0-9'’-]*/g) || []).filter((w) => !ALLOWED_EN.test(w)))];
+    if (enWords.length) {
+      result.push({ level: "info", label: "영문 사용 확인 (외국인 성명·일반화된 명사·고유명사·단위 등 부득이한 경우만)", basis: "p.28", matches: enWords.slice(0, 5).map((m) => ({ match: m })) });
+    }
+    // 다른 프로그램에서 복사하며 섞인 글자 (이모지, 사용자 정의 문자, 보이지 않는 문자 등)
+    const oddChars = [...new Set(t.match(ODD_CHARS) || [])];
+    if (oddChars.length) {
+      result.push({ level: "warn", label: "복사 과정에서 섞인 특수·보이지 않는 문자 (나이스 출력 확인 필요)", basis: "학교 점검표", matches: oddChars.slice(0, 4).map((c) => ({ match: "U+" + c.codePointAt(0).toString(16).toUpperCase() })) });
+    }
+    // PAPS는 1등급만 체육 관련 교과 세특에 입력 가능 (p.103)
+    const paps = t.match(/PAPS[^.]{0,20}?([2-5])\s*등급|학생건강체력평가[^.]{0,20}?([2-5])\s*등급/u);
+    if (paps) {
+      result.push({ level: "error", label: "PAPS는 1등급만 입력할 수 있음", basis: "p.103 다", matches: [{ match: paps[0] }] });
+    }
+    // 학생 작성 자료(소감문·자기평가서 등)를 그대로 인용했는지 확인 (p.27, 학교 연수자료)
+    const quotes = (t.match(/[“"‘'「『][^”"’'」』]{20,}[”"’'」』]/g) || []);
+    if (quotes.length) {
+      result.push({ level: "info", label: "긴 인용문 — 학생이 쓴 자료를 그대로 옮기지 않았는지 확인", basis: "p.27, 학교 연수자료", matches: quotes.slice(0, 2).map((q) => ({ match: q.slice(0, 20) + "…" })) });
     }
     const validNames = names.map((n) => String(n || "").trim()).filter((n) => n.length >= 2);
     const nameHits = validNames.filter((n) => t.includes(n));
@@ -376,7 +409,8 @@
   const FINAL_CHECKLIST = [
     "교사가 직접 관찰·평가한 내용만 담았습니다. (p.19 유의사항 4)",
     "단순 사실을 과장하거나 사실과 다른 내용이 없습니다. (p.19 4-가)",
-    "학생이 작성하여 제출한 내용을 옮긴 것이 아닙니다. (p.19 4-나)",
+    "학생에게 작성·제출하게 한 내용을 옮기지 않았고, 수업 중 학생이 쓴 자료(동료평가서·자기평가서·수업산출물·소감문·독후감)는 참고만 하고 그대로 인용하지 않았습니다. (p.19 4-나, p.27)",
+    "명사형 어미로 끝맺고, 특수문자·번호를 쓰지 않았으며, 영문은 부득이한 경우만 썼습니다. (p.28, p.30)",
     "AI 도움을 받았다면 그대로 입력하지 않고 실제 수행과 대조하여 고쳤습니다. (p.19 4-다)",
     "기재 금지 사항(대회·어학시험·기관명·부모 직업 등)이 없습니다. (p.18-19 유의사항 3)",
   ];

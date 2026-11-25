@@ -18,6 +18,7 @@
     v: 1,
     year: 2026,
     plan: [],
+    school: { sem1Start: "", sem1End: "", sem2Start: "", yearEnd: "", gradDate: "", seteukMin: "" },
     grade: "2",
     area: "seteuk",
     subject: "과학",
@@ -61,6 +62,7 @@
     if (!s.rec || typeof s.rec !== "object") s.rec = {};
     if (!s.customStd || typeof s.customStd !== "object") s.customStd = {};
     if (!Array.isArray(s.plan)) s.plan = [];
+    s.school = Object.assign(defaults().school, obj.school || {});
     s.year = Number(s.year) || 2026;
     if (!AREAS[s.area]) s.area = "seteuk";
     rules.setYear(s.year);
@@ -249,6 +251,59 @@
         return `${p.date} ${p.title}${hv ? ` (${hv.h}시간${hv.vol ? `, 봉사 ${hv.vol}시간` : ""})` : ""}`;
       });
   }
+  /* ---------- 학사 일정과 임원 재임기간 (기재요령 p.78) ---------- */
+  // 1·2학년: 3월 1일~학년말, 3학년: 3월 1일~졸업일, 학기 단위 선출은 학기 시작일~종료일
+  function schoolDates() {
+    const y = state.year;
+    const feb = new Date(y + 1, 2, 0).getDate(); // 다음 해 2월 말일
+    const s = state.school || {};
+    return {
+      sem1Start: s.sem1Start || `${y}.03.01.`,
+      sem1End: s.sem1End || "",
+      sem2Start: s.sem2Start || "",
+      yearEnd: s.yearEnd || `${y + 1}.02.${feb}.`,
+      gradDate: s.gradDate || "",
+    };
+  }
+  function termPeriod(term, grade) {
+    const d = schoolDates();
+    const g3 = String(grade) === "3";
+    if (term === "1학기") return [d.sem1Start, d.sem1End];
+    if (term === "2학기") return [d.sem2Start, g3 ? d.gradDate : d.yearEnd];
+    return [d.sem1Start, g3 ? d.gradDate : d.yearEnd];
+  }
+  function dayBefore(dateText) {
+    const m = String(dateText || "").match(/(\d{4})\.(\d{2})\.(\d{2})\./);
+    if (!m) return "";
+    const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) - 1);
+    return `${dt.getFullYear()}.${String(dt.getMonth() + 1).padStart(2, "0")}.${String(dt.getDate()).padStart(2, "0")}.`;
+  }
+  // 창체 계획에서 2학기 개학일·졸업일 찾기(비어 있을 때만 제안)
+  function guessSchoolDates() {
+    const s = state.school;
+    const changed = [];
+    if (!s.sem2Start) {
+      const p = state.plan.find((x) => /^\d{4}\.(08|09)\./.test(x.date) && /개학/.test(x.title + " " + x.note));
+      if (p) {
+        const m = (p.title + " " + p.note).match(/개학식?\s*\(\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*\)/);
+        s.sem2Start = m ? `${state.year}.${m[1].padStart(2, "0")}.${m[2].padStart(2, "0")}.` : p.date.split("-")[0];
+        changed.push("2학기 시작일");
+      }
+    }
+    if (!s.sem1End && s.sem2Start) {
+      s.sem1End = dayBefore(s.sem2Start);
+      changed.push("1학기 종료일");
+    }
+    if (!s.gradDate) {
+      const p = state.plan.find((x) => /졸업식/.test(x.title));
+      if (p) {
+        s.gradDate = p.date.split("-")[0];
+        changed.push("졸업일");
+      }
+    }
+    return changed;
+  }
+
   function leadsFor(r, area, grade) {
     if (!["auto", "career"].includes(area) || !r.extra.planLead) return [];
     // 관찰 기록의 장면으로 이미 쓴 활동은 정량 기록 문장에서 빼서 중복을 막음
@@ -374,7 +429,7 @@
     let context = "";
     if (state.area === "seteuk") context = seteukContext(s, r, curr);
     if (state.area === "auto") context = autoContext(r, grade);
-    if (state.area === "club") context = clubContext(r);
+    if (state.area === "club") context = clubContext(r, grade);
     if (state.area === "career") context = careerContext(r, grade);
 
     const blocked = state.area === "club" && ["youth", "afterSport"].includes(r.extra.clubType);
@@ -526,38 +581,55 @@
     );
   }
 
-  function autoContext(r, grade) {
+  // 임원 편집기: 자율·자치(전교·학년·학급), 동아리(동아리·학교스포츠클럽)
+  function rolesBlock(r, grade, scopes, titleHint) {
     const roles = r.extra.roles || [];
-    return planSection(r, "auto", grade) + `
-      <div class="section-title"><h3>임원 활동 <span class="sub">‘전교·학년·학급’과 재임기간 병기 (기재요령 p.78)</span></h3>
+    const d = schoolDates();
+    const missing = [!d.sem1End && "1학기 종료일", !d.sem2Start && "2학기 시작일", String(grade) === "3" && !d.gradDate && "졸업일"].filter(Boolean);
+    return `
+      <div class="section-title"><h3>임원 활동 <span class="sub">종류와 재임기간을 ( )안에 병기 (기재요령 p.78) · 예: 1학기 ${esc(scopes[scopes.length - 1])} 부반장(${esc(d.sem1Start)}-${esc(d.sem1End || "학기 종료일")})</span></h3>
         <button type="button" class="btn small" data-action="add-role">+ 임원 추가</button></div>
       <div class="roles">${roles.length ? roles.map((x, i) => `
         <div class="role-row" data-ridx="${i}">
           <select data-rfield="term" aria-label="기간 구분">${["", "1학기", "2학기"].map((t) => `<option value="${t}" ${x.term === t ? "selected" : ""}>${t || "학년"}</option>`).join("")}</select>
-          <select data-rfield="scope" aria-label="임원 종류">${["전교", "학년", "학급"].map((t) => `<option ${x.scope === t ? "selected" : ""}>${t}</option>`).join("")}</select>
-          <input data-rfield="title" value="${esc(x.title)}" placeholder="직책 (예: 반장, 학생자치회 부회장)" aria-label="직책">
-          <input data-rfield="start" value="${esc(x.start)}" placeholder="2026.03.01." aria-label="시작일">
-          <input data-rfield="end" value="${esc(x.end)}" placeholder="${grade === "3" ? "졸업일" : "학년말·학기말"}" aria-label="종료일">
+          <select data-rfield="scope" aria-label="임원 종류">${scopes.map((t) => `<option ${x.scope === t ? "selected" : ""}>${t}</option>`).join("")}</select>
+          <input data-rfield="title" value="${esc(x.title)}" placeholder="${esc(titleHint)}" aria-label="직책">
+          <input data-rfield="start" value="${esc(x.start)}" placeholder="${esc(d.sem1Start)}" aria-label="시작일">
+          <input data-rfield="end" value="${esc(x.end)}" placeholder="${String(grade) === "3" ? "졸업일" : "학년말·학기말"}" aria-label="종료일">
           <button type="button" class="icon-btn" data-action="remove-role" aria-label="임원 ${i + 1} 삭제">삭제</button>
-        </div>`).join("") : `<p class="hint">임원 활동이 없으면 비워 두세요. 재임기간은 1·2학년 3월 1일~학년말, 3학년 3월 1일~졸업일이 기본이며 학기 단위 선출은 학기 시작~종료일로 씁니다. (p.78)</p>`}</div>`;
+        </div>`).join("") : `<p class="hint">임원 활동이 없으면 비워 두세요. 기간 구분(학년/1학기/2학기)을 고르면 학사 일정에 맞춰 재임기간을 채웁니다. 1·2학년은 3월 1일~학년말, 3학년은 3월 1일~졸업일이 기본입니다. (p.78)</p>`}</div>
+      ${roles.length && missing.length ? `<p class="hint">재임기간 자동 채우기에 필요한 ${esc(missing.join("·"))}이 비어 있습니다. <button type="button" class="link-btn" data-open-plan="1">학사 일정 설정</button></p>` : ""}`;
   }
 
-  function clubContext(r) {
+  function autoContext(r, grade) {
+    return planSection(r, "auto", grade) + rolesBlock(r, grade, ["전교", "학년", "학급"], "직책 (예: 반장, 학생자치회 부회장)");
+  }
+
+  function clubContext(r, grade) {
     const type = r.extra.clubType || "regular";
+    const canRole = ["regular", "sport"].includes(type);
     return `
       <div class="field-row">
         <label class="field">동아리 유형<select data-xfield="clubType">${Object.entries(CLUB_TYPES).map(([k, t]) => `<option value="${k}" ${type === k ? "selected" : ""}>${esc(t.label)}</option>`).join("")}</select></label>
         <label class="field">동아리명 <span class="sub">(나이스에서 자동 표기, 점검용)</span><input data-xfield="clubName" value="${esc(r.extra.clubName || "")}" placeholder="예: 생태탐구반"></label>
       </div>
-      ${type === "self" ? `<div class="notice info">${esc(CLUB_TYPES.self.note)}</div>` : ""}`;
+      ${type === "self" ? `<div class="notice info">${esc(CLUB_TYPES.self.note)}</div>` : ""}
+      ${canRole ? rolesBlock(r, grade, ["동아리", "학교스포츠클럽"], "직책 (예: 반장, 부장)") : ""}`;
   }
 
   function careerContext(r, grade) {
+    const hope = r.extra.hope || "";
     return `
       ${planSection(r, "career", grade)}
       <div class="field-row">
-        <label class="field">희망분야 <span class="sub">(별도 칸 입력, 상급학교 미제공 · p.80)</span><input data-xfield="hope" value="${esc(r.extra.hope || "")}" placeholder="예: 생명과학 분야 / 진로탐색 중임."></label>
-      </div>`;
+        <label class="field">희망분야 <span class="sub">(별도 칸 입력, 상급학교 미제공 · p.80)</span><input data-xfield="hope" value="${esc(hope)}" placeholder="예: 생명과학 분야 / 진로탐색 중임."></label>
+      </div>
+      <div class="chips" style="margin:-4px 0 8px">
+        <button type="button" class="chip" data-hope="진로탐색 중임.">진로탐색 중임.</button>
+        <button type="button" class="chip" data-hope="현재 진로희망 없음.">현재 진로희망 없음.</button>
+        <span class="muted">진로희망을 정하지 못한 경우에도 마침표까지 입력 (p.80, 학교 연수자료)</span>
+      </div>
+      ${hope && !/[.。]\s*$/.test(hope) && /(?:임|음|함|없음|중)$/.test(hope.trim()) ? `<div class="notice warn">희망분야가 문장으로 끝났는데 마침표가 없습니다. 예: ‘진로탐색 중임.’</div>` : ""}`;
   }
 
   /* ---------- 렌더링: 문구 ---------- */
@@ -656,7 +728,66 @@
         <button type="button" class="btn small" data-action="bulk-txt">TXT 저장</button>
         <button type="button" class="btn small" data-action="print">인쇄</button></div>
       <p class="hint">표시 ${vis.length}명 중 확정 ${done}명 · 확정되지 않은 학생은 첫 번째 초안을 회색으로 보여 줍니다. 내보내기에는 <b>확정 문구만</b> 들어갑니다.</p>
-      <div class="table-wrap"><table class="grid"><thead><tr><th>반-번호</th><th>이름</th><th>상태</th><th>문구</th><th>Byte</th><th>금지</th></tr></thead><tbody>${rows.join("") || `<tr><td colspan="6" class="empty">학생이 없습니다.</td></tr>`}</tbody></table></div>`;
+      <div class="table-wrap"><table class="grid"><thead><tr><th>반-번호</th><th>이름</th><th>상태</th><th>문구</th><th>Byte</th><th>금지</th></tr></thead><tbody>${rows.join("") || `<tr><td colspan="6" class="empty">학생이 없습니다.</td></tr>`}</tbody></table></div>
+      ${classCheckHtml(vis)}`;
+  }
+
+  /* ---------- 학급 점검 (학교생활기록부 확인·점검표 중 이 앱이 자동으로 확인할 수 있는 항목) ---------- */
+  function classCheckHtml(vis) {
+    if (!vis.length) return "";
+    const who = (list) => list.slice(0, 6).map((s) => s.name || "(이름 없음)").join(", ") + (list.length > 6 ? ` 외 ${list.length - 6}명` : "");
+    const recOf = (s, key) => state.rec[s.id] && state.rec[s.id][key];
+    const rows = [];
+    const add = (item, bad, okText, basis) => rows.push({ item, ok: !bad.length, detail: bad.length ? `${bad.length}명: ${who(bad)}` : okText, basis });
+    const g = gradeOf(vis[0]);
+    ["auto", "club", "career", "behavior"].forEach((area) => {
+      const bad = vis.filter((s) => {
+        const r = recOf(s, area);
+        if (area === "club" && r && ["youth", "afterSport"].includes(r.extra.clubType) && r.extra.clubName) return false; // 명칭만 입력하는 유형
+        return !r || !r.final;
+      });
+      add(`${AREAS[area].label(g)} — 모든 학생 확정`, bad, `${vis.length}명 모두 확정`, area === "behavior" ? "p.115" : "p.73");
+    });
+    add("진로활동 희망분야 입력 (미정이어도 ‘진로탐색 중임.’)", vis.filter((s) => !((recOf(s, "career") || { extra: {} }).extra.hope || "").trim()), "모두 입력", "p.80");
+    add(
+      "임원 재임기간 병기 (자율·자치, 동아리)",
+      vis.filter((s) => ["auto", "club"].some((a) => ((recOf(s, a) || { extra: {} }).extra.roles || []).some((x) => x.title && (!x.start || !x.end)))),
+      "누락 없음",
+      "p.78"
+    );
+    // 교과 세특 입력 비율 (중학교는 특기할 만한 학생 대상, 비율은 학교 기준)
+    const seteukKey = recKey("seteuk", state.subject);
+    const sDone = vis.filter((s) => (recOf(s, seteukKey) || {}).final).length;
+    const min = Number(state.school.seteukMin) || 0;
+    const pct = Math.round((sDone / vis.length) * 100);
+    rows.push({
+      item: `교과 세특(${state.subject}) 입력 비율${min ? ` — 학교 기준 ${min}% 이상` : ""}`,
+      ok: !min || pct >= min,
+      detail: `${sDone}/${vis.length}명 (${pct}%)${min && pct < min ? ` · 기준까지 ${Math.ceil((min * vis.length) / 100) - sDone}명 더 필요` : ""}`,
+      basis: min ? "p.88, 학교 기준" : "p.88 (특기할 만한 학생 대상)",
+    });
+    // 확정 문구 전체 점검
+    const levelOf = { error: [], warn: [], style: [] };
+    vis.forEach((s) => {
+      const recs = state.rec[s.id] || {};
+      Object.entries(recs).forEach(([key, r]) => {
+        if (!r || !r.final) return;
+        const area = key.startsWith("seteuk:") ? "seteuk" : key;
+        if (!AREAS[area]) return;
+        const a = analyze(r.final, area);
+        if (a.issues.some((i) => i.level === "error")) levelOf.error.push(s);
+        if (a.issues.some((i) => /명사형|기호|보이지 않는/.test(i.label))) levelOf.style.push(s);
+        if (a.issues.some((i) => /학생 이름/.test(i.label))) levelOf.warn.push(s);
+      });
+    });
+    const uniq = (list) => [...new Set(list)];
+    add("확정 문구에 기재 불가 표현 없음 (대회·어학시험·대학명 등)", uniq(levelOf.error), "감지 없음", "p.18-19, p.104");
+    add("명사형 종결·특수문자/번호·복사 문자 점검", uniq(levelOf.style), "감지 없음", "p.30, 학교 점검표");
+    add("확정 문구에 학생 이름 없음", uniq(levelOf.warn), "감지 없음", "작성 관행");
+    return `<h3 style="margin-top:18px">학급 점검 <span class="sub">학교생활기록부 확인·점검표 가운데 이 앱의 자료로 자동 확인할 수 있는 항목 · 출결·수상·독서·봉사 실적 등은 나이스에서 직접 점검</span></h3>
+      <div class="table-wrap"><table class="grid check-table"><thead><tr><th>점검 항목</th><th>결과</th><th>근거</th></tr></thead><tbody>${rows
+        .map((r) => `<tr><td>${esc(r.item)}</td><td class="${r.ok ? "ok" : "ng"}">${r.ok ? "○ " : "확인 필요 · "}${esc(r.detail)}</td><td class="num">${esc(r.basis)}</td></tr>`)
+        .join("")}</tbody></table></div>`;
   }
 
   function renderAll() {
@@ -883,9 +1014,25 @@
   }
 
   /* ---------- 창체 연간 계획 대화상자 ---------- */
+  const SCHOOL_FIELDS = [
+    ["sem1Start", "1학기 시작일", "예: 2026.03.01."],
+    ["sem1End", "1학기 종료일", "2학기 시작 전날"],
+    ["sem2Start", "2학기 시작일", "개학일"],
+    ["yearEnd", "학년말 (1·2학년)", "다음 해 2월 말일"],
+    ["gradDate", "졸업일 (3학년)", "졸업식 날"],
+    ["seteukMin", "교과 세특 최소 입력 비율 % (학교 기준, 선택)", "예: 10"],
+  ];
+  function renderSchoolGrid() {
+    const d = schoolDates();
+    $("#school-grid").innerHTML = SCHOOL_FIELDS.map(
+      ([k, label, ph]) => `<label class="field">${esc(label)}<input data-school="${k}" value="${esc(state.school[k] || "")}" placeholder="${esc(k in d && d[k] ? d[k] : ph)}"></label>`
+    ).join("");
+  }
   function openPlanDialog() {
     $("#plan-paste").value = "";
     $("#plan-result").textContent = "";
+    $("#school-result").textContent = "";
+    renderSchoolGrid();
     renderPlanDialog();
     $("#plan-dialog").showModal();
   }
@@ -920,7 +1067,12 @@
     if (replace && state.plan.length && !confirm(`기존 계획 ${state.plan.length}개를 지우고 ${items.length}개로 바꿉니다. 학생별로 고른 계획 활동 선택도 풀립니다. 계속할까요?`)) return;
     state.plan = replace ? items : state.plan.concat(items);
     save(true);
+    const found = guessSchoolDates();
     $("#plan-result").textContent = `${items.length}개 활동을 ${replace ? "불러왔습니다" : "추가했습니다"}.`;
+    if (found.length) {
+      $("#school-result").textContent = `계획에서 ${found.join("·")}을 찾아 넣었습니다. 맞는지 확인하세요.`;
+      renderSchoolGrid();
+    }
     $("#plan-paste").value = "";
     renderPlanDialog();
     renderWork();
@@ -1060,6 +1212,15 @@
       if (sub) sub.textContent = `관찰로 확인한 것만 고르세요 · ${r.keywords.length}개 선택`;
       return;
     }
+    const hopeBtn = t.closest("[data-hope]");
+    if (hopeBtn) {
+      const r = getRec(state.selected);
+      r.extra.hope = hopeBtn.dataset.hope;
+      save();
+      renderWork();
+      renderOutput();
+      return;
+    }
     const kwr = t.closest("[data-kw-remove]");
     if (kwr) {
       const r = getRec(state.selected);
@@ -1159,10 +1320,13 @@
         }
         break;
       case "add-role":
-        r.extra.roles = r.extra.roles || [];
-        r.extra.roles.push({ term: "", scope: "학급", title: "", start: "2026.03.01.", end: "" });
-        save();
-        renderWork();
+        {
+          r.extra.roles = r.extra.roles || [];
+          const [st, en] = termPeriod("", gradeOf(s));
+          r.extra.roles.push({ term: "", scope: state.area === "club" ? "동아리" : "학급", title: "", start: st, end: en });
+          save();
+          renderWork();
+        }
         break;
       case "remove-role": {
         const i = Number(act.closest(".role-row").dataset.ridx);
@@ -1214,7 +1378,7 @@
         if (state.area === "seteuk" && r.extra.unit) extra.push("단원·주제: " + r.extra.unit);
         if (state.area === "club" && r.extra.clubName) extra.push("동아리: " + r.extra.clubName + " (" + CLUB_TYPES[r.extra.clubType || "regular"].label + ")");
         if (state.area === "career" && r.extra.hope) extra.push("희망분야(별도 칸 입력, 문구에 넣지 않아도 됨): " + r.extra.hope);
-        if (state.area === "auto") (r.extra.roles || []).filter((x) => x.title).forEach((x) => extra.push(`임원: ${[x.term, x.scope, x.title].filter(Boolean).join(" ")}(${[x.start, x.end].filter(Boolean).join("-")})`));
+        if (state.area === "auto" || state.area === "club") (r.extra.roles || []).filter((x) => x.title).forEach((x) => extra.push(`임원: ${[x.term, x.scope, x.title].filter(Boolean).join(" ")}(${[x.start, x.end].filter(Boolean).join("-")})`));
         $("#prompt-text").value = C.buildPrompt({
           areaKey: state.area,
           grade: gradeOf(s),
@@ -1355,6 +1519,11 @@
       refreshCheck(t.closest(".draft"), t.value);
       return;
     }
+    if (t.matches("[data-school]")) {
+      state.school[t.dataset.school] = t.value.trim();
+      save();
+      return;
+    }
     if (t.id === "roster-search") return renderRoster();
     if (t.id === "roster-paste") {
       rosterMap = null;
@@ -1428,6 +1597,16 @@
       toast(g.exact ? `${state.year}학년도 기준으로 바꿨습니다.` : `${state.year}학년도: 2022 개정 교육과정을 전 학년에 적용합니다. 기재요령은 ${g.used}학년도 기준입니다.`);
       return;
     }
+    if (t.matches("[data-school]") && t.dataset.school !== "seteukMin" && t.value.trim()) {
+      // 입력을 마치면 2026.03.01. 형식으로 맞춤
+      const d = normDate(t.value);
+      if (d.sort !== "9999") {
+        state.school[t.dataset.school] = d.date.split("-")[0];
+        t.value = state.school[t.dataset.school];
+        save();
+      }
+      return;
+    }
     if (t.id === "plan-file") {
       const f = t.files[0];
       t.value = "";
@@ -1435,7 +1614,17 @@
       return;
     }
     if (t.matches("[data-rfield]") && t.tagName === "SELECT") {
-      getRec(s.id).extra.roles[Number(t.closest(".role-row").dataset.ridx)][t.dataset.rfield] = t.value;
+      const role = getRec(s.id).extra.roles[Number(t.closest(".role-row").dataset.ridx)];
+      role[t.dataset.rfield] = t.value;
+      if (t.dataset.rfield === "term") {
+        // 기간 구분을 바꾸면 학사 일정에 맞춰 재임기간을 다시 채움 (빈 값은 그대로 둠)
+        const [st, en] = termPeriod(t.value, gradeOf(s));
+        if (st) role.start = st;
+        role.end = en || "";
+        save();
+        renderWork();
+        return;
+      }
       save();
       return;
     }
@@ -1551,6 +1740,13 @@
   });
   $("#prompt-copy").addEventListener("click", () => copyText($("#prompt-text").value));
   $("#plan-import-btn").addEventListener("click", () => importPlanText($("#plan-paste").value));
+  $("#school-guess-btn").addEventListener("click", () => {
+    if (!state.plan.length) return void ($("#school-result").textContent = "먼저 창체 계획을 불러오세요.");
+    const found = guessSchoolDates();
+    save();
+    renderSchoolGrid();
+    $("#school-result").textContent = found.length ? `${found.join("·")}을 찾아 넣었습니다. 맞는지 확인하세요.` : "새로 채울 항목이 없습니다. (이미 입력된 값은 바꾸지 않음)";
+  });
   $("#plan-file-btn").addEventListener("click", () => $("#plan-file").click());
   $("#plan-export-btn").addEventListener("click", () => {
     if (!state.plan.length) return toast("내보낼 계획이 없습니다.");

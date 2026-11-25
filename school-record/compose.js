@@ -228,7 +228,7 @@
     const strip = nameStripper(input.names);
     const entries = (input.entries || []).map((e) => cleanEntry(e, strip)).filter((e) => e.scene.length || e.action.length || e.change.length);
     const keywords = (input.keywords || []).filter(Boolean);
-    const roles = areaKey === "auto" ? roleSentences(input.roles) : [];
+    const roles = areaKey === "auto" || areaKey === "club" ? roleSentences(input.roles) : [];
     const leads = (input.leads || []).filter(Boolean); // 정량 기록 등 맨 앞에 둘 문장
 
     if (!entries.length && !keywords.length && !roles.length && !leads.length) {
