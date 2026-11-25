@@ -298,7 +298,7 @@
     }
     if (q.type === 'multi') {
       const chosen = r.k || [];
-      return `<div class="q-bogi interactive"><span class="bogi-tag">보기</span><p class="bogi-help">옳은 것을 <b>모두</b> 골라 누르세요.</p>${q.bogi
+      return `<div class="q-bogi interactive"><span class="bogi-tag">${q.numbered ? '선택지' : '보기'}</span><p class="bogi-help">${q.numbered ? '알맞은 것을' : '옳은 것을'} <b>모두</b> 골라 누르세요.</p>${q.bogi
         .map((b) => {
           const on = chosen.includes(b.k);
           let cls = on ? 'on' : '';
@@ -308,7 +308,7 @@
             if (on !== b.ok) cls += ' miss';
             mark = `<span class="ox ${b.ok ? 'o' : 'x'}">${b.ok ? '⭕' : '❌'}</span>`;
           }
-          return `<button class="bogi-item ${cls}" data-act="toggle" data-k="${b.k}" aria-pressed="${on}" ${fin ? 'disabled' : ''}><span class="cbox">${icon('check')}</span><span class="bk">${b.k}.</span><span class="bt">${b.t}</span>${mark}</button>`;
+          return `<button class="bogi-item ${cls}" data-act="toggle" data-k="${b.k}" aria-pressed="${on}" ${fin ? 'disabled' : ''}><span class="cbox">${icon('check')}</span><span class="bk">${q.numbered ? b.k : b.k + '.'}</span><span class="bt">${b.t}</span>${mark}</button>`;
         })
         .join('')}</div>`;
     }
@@ -357,7 +357,7 @@
     h += '</div>';
     if (q.bogi) {
       h += `<div class="card bogi-analysis"><h3>보기 하나씩 따져 보기</h3>${q.bogi
-        .map((b) => `<div class="ba-row ${b.ok ? 'o' : 'x'}"><span class="ba-mark">${b.ok ? '⭕' : '❌'}</span><div><b>${b.k}. ${b.t}</b><p>${b.why}</p></div></div>`)
+        .map((b) => `<div class="ba-row ${b.ok ? 'o' : 'x'}"><span class="ba-mark">${b.ok ? '⭕' : '❌'}</span><div><b>${SF.bkey(b.k)} ${b.t}</b><p>${b.why}</p></div></div>`)
         .join('')}</div>`;
     }
     if (q.type === 'mc' && q.neg) {

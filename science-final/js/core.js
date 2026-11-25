@@ -54,7 +54,8 @@
   const KEYS = 'ㄱㄴㄷㄹㅁㅂ';
   const BANK = { u7: [], u8: [] };
   const pad2 = (n) => String(n).padStart(2, '0');
-  const mkBogi = (bg) => bg.map(([t, ok, why], i) => ({ k: KEYS[i], t: fixText(t), ok: !!ok, why: why || '' }));
+  const NUMS = '①②③④⑤⑥⑦⑧';
+  const mkBogi = (bg, keys) => bg.map(([t, ok, why], i) => ({ k: (keys || KEYS)[i], t: fixText(t), ok: !!ok, why: why || '' }));
   const shiftKeys = (o) => {
     const r = {};
     Object.keys(o || {}).forEach((k) => (r[+k - 1] = o[k]));
@@ -99,7 +100,8 @@
         q.slots = it.sl.map(([label, ch, ans, fb]) => ({ label, choices: ch.split('|'), answer: ans - 1, fb: shiftKeys(fb) }));
       } else if (it.mu) {
         q.type = 'multi';
-        q.bogi = mkBogi(it.bg);
+        q.numbered = it.mu === 'num'; // '모두 고르면?'처럼 ①~⑤ 선택지에서 여러 개 고르기
+        q.bogi = mkBogi(it.bg, q.numbered ? NUMS : KEYS);
       } else {
         q.type = 'mc';
         q.neg = !!it.neg;
@@ -123,6 +125,7 @@
     return s.split(',').map((x) => x.trim()).join(', ');
   }
   SF.bank = BANK;
+  SF.bkey = (k) => (/[ㄱ-ㅎ]/.test(k) ? k + '.' : k);
   SF.data = DATA;
   SF.unit = (u) => DATA[u];
   SF.q = (id) => QMAP[id];
@@ -237,6 +240,8 @@
   SF.normShort = function (s, unit) {
     let t = String(s == null ? '' : s).normalize('NFC').trim().toLowerCase();
     t = t.replace(/\s+/g, '').replace(/[−–—]/g, '-').replace(/,/g, '').replace(/[()（）]/g, '');
+    // 기호 나열(ㄹ-ㅁ-ㄱ, ㄹ→ㅁ→ㄱ, ㄹ<ㅁ<ㄱ)은 구분 기호를 무시
+    t = t.replace(/([ㄱ-ㅎ])[-→<>~·.]+(?=[ㄱ-ㅎ])/g, '$1');
     (UNIT_ALIAS[unit] || (unit ? [unit.toLowerCase()] : [])).forEach((al) => {
       if (t.endsWith(al)) t = t.slice(0, -al.length);
     });
@@ -316,11 +321,11 @@
       const truth = SF.trueKeys(q);
       if (sameSet(chosen, truth)) return out;
       q.bogi.forEach((b) => {
-        if (chosen.includes(b.k) && !b.ok) out.push({ kind: 'mis', html: `<b>${b.k}. ${b.t}</b><br>❌ 옳지 않은 진술이에요. ✅ ${b.why}` });
+        if (chosen.includes(b.k) && !b.ok) out.push({ kind: 'mis', html: `<b>${SF.bkey(b.k)} ${b.t}</b><br>❌ 옳지 않은 진술이에요. ✅ ${b.why}` });
       });
       q.bogi.forEach((b) => {
         if (!chosen.includes(b.k) && b.ok) {
-          out.push(reveal ? { kind: 'miss', html: `<b>${b.k}. ${b.t}</b><br>⭕ 이 진술도 옳아요. ${b.why}` } : { kind: 'miss', html: `<b>${b.k}</b>도 다시 읽어 보세요. 옳은 진술일 수 있어요.` });
+          out.push(reveal ? { kind: 'miss', html: `<b>${SF.bkey(b.k)} ${b.t}</b><br>⭕ 이 진술도 옳아요. ${b.why}` } : { kind: 'miss', html: `<b>${b.k}</b>도 다시 읽어 보세요. 옳은 진술일 수 있어요.` });
         }
       });
       return out;
