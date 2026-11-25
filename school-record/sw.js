@@ -1,6 +1,7 @@
 /* 오프라인 사용을 위한 앱 파일 캐시 (학생 자료는 캐시하지 않음: localStorage에만 저장) */
-const CACHE = "srm2026-v1";
-const FILES = ["./", "index.html", "app.css", "app.js", "rules.js", "korean.js", "compose.js", "standards.js", "standards-data.js", "xlsx-lite.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
+const CACHE = "srm2026-v2";
+const STD = ["kor", "soc", "his", "mor", "mat", "sci", "eng", "pe", "mus", "art"].map((k) => `std/2022-${k}.js`);
+const FILES = ["./", "index.html", "app.css", "app.js", "rules.js", "korean.js", "compose.js", "standards.js", "standards-data.js", "xlsx-lite.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png", ...STD];
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
 });

@@ -1,9 +1,10 @@
 /*
  * 성취기준 데이터와 붙여넣기 파서
- * - 2026학년도: 중1·중2 = 2022 개정 교육과정, 중3 = 2015 개정 교육과정 (기재요령 부칙 p.133)
- * - 내장 성취기준은 국가교육과정정보센터(NCIC) 원문에서 그대로 옮긴 것만 수록합니다.
- *   (교육부 고시 「초·중등학교 교육과정」, 공공누리 제2유형: 출처표시 + 상업적 이용금지)
- * - 내장 자료가 없는 과목은 교육과정 문서의 성취기준을 붙여 넣어 추가할 수 있습니다.
+ * - 2026학년도: 중1·중2 = 2022 개정, 중3 = 2015 개정 / 2027학년도부터 중1~3 모두 2022 개정 (기재요령 부칙 p.133)
+ * - 내장 자료(std/2022-*.js): 「2022 개정 교육과정에 따른 중학교 ○○ 성취수준」의 ‘성취기준별 성취수준’ 표를
+ *   원문 그대로 옮긴 것 (국어·사회·역사·도덕·수학·과학·영어·체육·음악·미술). 2022 개정 중학교 성취기준은
+ *   1~3학년군 공통이므로 2027학년도 3학년에도 그대로 쓰입니다.
+ * - 2015 개정(2026학년도 3학년)과 내장 자료가 없는 과목은 교육과정 문서의 성취기준을 붙여 넣어 추가할 수 있습니다.
  */
 (function (global) {
   "use strict";
@@ -32,6 +33,42 @@
   function builtIn(curriculum, subject) {
     const entry = (BUILT_IN[curriculum] || {})[subject];
     return entry ? entry : null;
+  }
+
+  // 내장 자료 파일 (교과별 지연 로딩, file:// 에서도 동작하도록 <script> 방식)
+  const FILES = {
+    "2022": { 국어: "kor", 사회: "soc", 역사: "his", 도덕: "mor", 수학: "mat", 과학: "sci", 영어: "eng", 체육: "pe", 음악: "mus", 미술: "art" },
+  };
+  const loading = {};
+  function hasFile(curriculum, subject) {
+    return !!(FILES[curriculum] && FILES[curriculum][subject]);
+  }
+  function ensure(curriculum, subject) {
+    if (builtIn(curriculum, subject) || !hasFile(curriculum, subject)) return Promise.resolve(builtIn(curriculum, subject));
+    const src = `std/${curriculum}-${FILES[curriculum][subject]}.js`;
+    if (!loading[src]) {
+      loading[src] = new Promise((resolve) => {
+        const s = document.createElement("script");
+        s.src = src;
+        s.onload = () => resolve(builtIn(curriculum, subject));
+        s.onerror = () => {
+          delete loading[src];
+          resolve(null);
+        };
+        document.head.appendChild(s);
+      });
+    }
+    return loading[src];
+  }
+  // 성취기준 항목에서 특정 수준(A~E)의 설명 찾기 (병합 칸 ‘A·B’ 포함)
+  function levelText(item, grade) {
+    if (!item || !item.levels || !grade) return "";
+    const hit = item.levels.find((l) => String(l[0]).split("·").includes(grade));
+    return hit ? hit[1] : "";
+  }
+  function levelGrades(item) {
+    if (!item || !item.levels) return [];
+    return item.levels.flatMap((l) => String(l[0]).split("·"));
   }
 
   // 성취기준 코드: [9과01-01], [9사(지리)01-01], [9기가01-01], [9체01-01] 등
@@ -67,5 +104,5 @@
     return out;
   }
 
-  SRM.standards = { SUBJECTS, ARTS_PE, BUILT_IN, register, builtIn, parse, normalizeCode };
+  SRM.standards = { SUBJECTS, ARTS_PE, BUILT_IN, FILES, register, builtIn, hasFile, ensure, levelText, levelGrades, parse, normalizeCode };
 })(typeof window !== "undefined" ? window : globalThis);

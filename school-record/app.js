@@ -16,6 +16,8 @@
   /* ---------- 상태 ---------- */
   const defaults = () => ({
     v: 1,
+    year: 2026,
+    plan: [],
     grade: "2",
     area: "seteuk",
     subject: "과학",
@@ -58,7 +60,10 @@
     if (!Array.isArray(s.students)) s.students = [];
     if (!s.rec || typeof s.rec !== "object") s.rec = {};
     if (!s.customStd || typeof s.customStd !== "object") s.customStd = {};
+    if (!Array.isArray(s.plan)) s.plan = [];
+    s.year = Number(s.year) || 2026;
     if (!AREAS[s.area]) s.area = "seteuk";
+    rules.setYear(s.year);
     return s;
   }
   function save(immediate) {
@@ -148,7 +153,7 @@
     if (!r) return "none";
     if (r.final) return "done";
     if (r.drafts && r.drafts.some((d) => d.text)) return "draft";
-    if (hasMemo(r) || (r.keywords && r.keywords.length)) return "memo";
+    if (hasMemo(r) || (r.keywords && r.keywords.length) || (r.extra && r.extra.planSel && r.extra.planSel.length)) return "memo";
     return "none";
   }
   const allNames = () => state.students.map((s) => s.name).filter(Boolean);
@@ -159,6 +164,103 @@
     const n = (x) => (x === "" || x == null ? 999 : Number(x) || 999);
     state.students.sort((a, b) => n(a.grade) - n(b.grade) || n(a.cls) - n(b.cls) || n(a.num) - n(b.num) || String(a.name).localeCompare(String(b.name), "ko"));
   }
+  /* ---------- 학교 창체 연간 계획 ---------- */
+  // 열: 자율·자치(1·2학년)/자율(3학년) a1~a3, 동아리 c1~c3, 봉사(3학년) v3, 진로 r1~r3. 값 예: "1", "1(1)" (괄호 = 봉사활동 시수)
+  const PLAN_COLS = [
+    ["a1", "자율자치1"], ["a2", "자율자치2"], ["a3", "자율3"],
+    ["c1", "동아리1"], ["c2", "동아리2"], ["c3", "동아리3"],
+    ["v3", "봉사3"], ["r1", "진로1"], ["r2", "진로2"], ["r3", "진로3"],
+  ];
+  const PLAN_HEAD = ["날짜", "교시", "활동명", "담당", ...PLAN_COLS.map((c) => c[1]), "비고"];
+  const planKey = (area, grade) => (area === "auto" ? "a" : area === "career" ? "r" : area === "club" ? "c" : "") + String(grade);
+  function planHours(v) {
+    const m = String(v || "").match(/^\s*(\d+(?:\.\d+)?)\s*(?:\((\d+)\))?/);
+    return m ? { h: Number(m[1]), vol: m[2] ? Number(m[2]) : 0 } : null;
+  }
+  function planItems(area, grade) {
+    const k = planKey(area, grade);
+    return state.plan.filter((p) => p.h && planHours(p.h[k])).sort((a, b) => String(a.sort).localeCompare(String(b.sort)));
+  }
+  // 날짜 표기 통일: 2026-03-03 / 2026.03.03. / 3/3 / 3.3 → 2026.03.03. (1·2월은 다음 해), 범위는 ‘-’로 연결
+  function normDate(raw) {
+    const src = String(raw || "");
+    const re = /(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})|(?<![\d.])(\d{1,2})\s*[./월]\s*(\d{1,2})(?![\d])/g;
+    const ds = [...src.matchAll(re)]
+      .map((m) => (m[1] ? [m[1], m[2], m[3]] : [String(Number(m[4]) <= 2 ? state.year + 1 : state.year), m[4], m[5]]))
+      .filter(([, mo, d]) => Number(mo) >= 1 && Number(mo) <= 12 && Number(d) >= 1 && Number(d) <= 31)
+      .map(([y, mo, d]) => `${y}.${String(mo).padStart(2, "0")}.${String(d).padStart(2, "0")}.`);
+    if (!ds.length) return { date: String(raw || "").trim(), sort: "9999" };
+    return { date: ds.length > 1 ? `${ds[0]}-${ds[ds.length - 1]}` : ds[0], sort: ds[0] };
+  }
+  function parsePlanRows(rows) {
+    if (!rows.length) return [];
+    const head = rows[0].map((c) => String(c).replace(/[\s·.]/g, ""));
+    const idx = (name) => head.findIndex((h) => h === name.replace(/[\s·.]/g, ""));
+    const hasHead = idx("활동명") >= 0;
+    const col = (name, fallback) => (hasHead ? idx(name) : fallback);
+    const out = [];
+    rows.slice(hasHead ? 1 : 0).forEach((r) => {
+      const title = String(r[col("활동명", 2)] || "").trim();
+      if (!title) return;
+      const h = {};
+      PLAN_COLS.forEach(([k, name], i) => {
+        const v = String(r[col(name, 4 + i)] || "").trim();
+        if (v) h[k] = v;
+      });
+      const d = normDate(r[col("날짜", 0)]);
+      out.push({ id: uid(), date: d.date, sort: d.sort, period: String(r[col("교시", 1)] || "").trim(), title, dept: String(r[col("담당", 3)] || "").trim(), h, note: String(r[col("비고", 14)] || "").trim() });
+    });
+    return out;
+  }
+  function planToCsv() {
+    const lines = [PLAN_HEAD.join(",")];
+    state.plan
+      .slice()
+      .sort((a, b) => String(a.sort).localeCompare(String(b.sort)))
+      .forEach((p) => lines.push([p.date, p.period, p.title, p.dept, ...PLAN_COLS.map(([k]) => (p.h || {})[k] || ""), p.note].map(csvCell).join(",")));
+    return "﻿" + lines.join("\r\n");
+  }
+  // 기재요령 p.77 나 정량 기록 형식: 활동명(날짜) / 여러 번이면 활동명(첫날-끝날/n회)
+  function planLeadSentence(ids, area, grade) {
+    const k = planKey(area, grade);
+    const chosen = state.plan.filter((p) => ids.includes(p.id) && planHours((p.h || {})[k])).sort((a, b) => String(a.sort).localeCompare(String(b.sort)));
+    if (!chosen.length) return "";
+    const groups = new Map();
+    chosen.forEach((p) => {
+      const key = p.title.replace(/\s+/g, " ").trim();
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(p);
+    });
+    const parts = [...groups.entries()].map(([title, list]) => {
+      if (list.length === 1) return `${title}(${list[0].date})`;
+      const first = list[0].date.split("-")[0];
+      const last = list[list.length - 1].date.split("-").pop();
+      return `${title}(${first}-${last}/${list.length}회)`;
+    });
+    return parts.join(", ") + "에 참여함.";
+  }
+  function planActLines(ids, area, grade) {
+    const k = planKey(area, grade);
+    return state.plan
+      .filter((p) => ids.includes(p.id))
+      .sort((a, b) => String(a.sort).localeCompare(String(b.sort)))
+      .map((p) => {
+        const hv = planHours((p.h || {})[k]);
+        return `${p.date} ${p.title}${hv ? ` (${hv.h}시간${hv.vol ? `, 봉사 ${hv.vol}시간` : ""})` : ""}`;
+      });
+  }
+  function leadsFor(r, area, grade) {
+    if (!["auto", "career"].includes(area) || !r.extra.planLead) return [];
+    // 관찰 기록의 장면으로 이미 쓴 활동은 정량 기록 문장에서 빼서 중복을 막음
+    const scenes = r.entries.map((e) => String(e.scene || ""));
+    const ids = (r.extra.planSel || []).filter((id) => {
+      const p = state.plan.find((x) => x.id === id);
+      return p && !scenes.some((sc) => sc.includes(`${p.title}(${p.date})`));
+    });
+    const s = planLeadSentence(ids, area, grade);
+    return s ? [s] : [];
+  }
+
   function visibleStudents() {
     const q = ($("#roster-search").value || "").trim();
     return state.students.filter((s) => {
@@ -273,7 +375,7 @@
     if (state.area === "seteuk") context = seteukContext(s, r, curr);
     if (state.area === "auto") context = autoContext(r, grade);
     if (state.area === "club") context = clubContext(r);
-    if (state.area === "career") context = careerContext(r);
+    if (state.area === "career") context = careerContext(r, grade);
 
     const blocked = state.area === "club" && ["youth", "afterSport"].includes(r.extra.clubType);
     const kwGroups = C.KEYWORDS[state.area];
@@ -285,9 +387,10 @@
     el.innerHTML = `
       <div class="student-head">
         <h2>${esc(studentLabel(s))}</h2>
-        <span class="badge">${grade}학년 · ${curr} 개정 교육과정</span>
+        <span class="badge">${state.year}학년도 · ${grade}학년 · ${curr} 개정 교육과정</span>
         <button type="button" class="link-btn" data-action="toggle-info">학생 정보 수정</button>
       </div>
+      ${rules.guideStatus().exact ? "" : `<div class="notice warn">${state.year}학년도 학교생활기록부 기재요령은 아직 반영되지 않았습니다. 글자 수·기재 금지 사항은 ${rules.guideStatus().used}학년도 기재요령 기준이니, 새 기재요령이 나오면 달라진 점을 확인하세요.</div>`}
       <div class="field-row" id="student-info" hidden>
         <label class="field">학년<select data-sfield="grade">${["1", "2", "3"].map((g) => `<option ${g === grade ? "selected" : ""}>${g}</option>`).join("")}</select></label>
         <label class="field">반<input data-sfield="cls" value="${esc(s.cls)}" inputmode="numeric"></label>
@@ -353,8 +456,32 @@
     const subjects = [...new Set([...STD.SUBJECTS, ...Object.keys(state.rec[s.id] || {}).filter((k) => k.startsWith("seteuk:")).map((k) => k.slice(7))])];
     const isArts = STD.ARTS_PE.includes(state.subject);
     const selected = r.extra.standards || [];
+    const loaded = STD.builtIn(curr, state.subject);
+    if (!loaded && STD.hasFile(curr, state.subject)) {
+      STD.ensure(curr, state.subject).then((b) => b && renderWork());
+    }
     const pool = stdPool(curr, state.subject);
-    const builtInCount = (STD.builtIn(curr, state.subject) || { domains: [] }).domains.reduce((n, d) => n + d.items.length, 0);
+    const builtInCount = (loaded || { domains: [] }).domains.reduce((n, d) => n + d.items.length, 0);
+    const noBuiltIn = !loaded && !STD.hasFile(curr, state.subject);
+    const stdNote =
+      curr === "2015"
+        ? `<div class="notice info">${esc(gradeOf(s))}학년은 ${state.year}학년도에 2015 개정 교육과정을 적용합니다. 2015 개정 성취기준은 내장하지 않았으니 필요하면 ‘성취기준 선택 → 붙여넣어 추가’를 쓰세요. 2027학년도부터는 3학년도 2022 개정 성취기준이 자동으로 연결됩니다.</div>`
+        : noBuiltIn
+        ? `<p class="hint">이 과목은 내장 성취기준이 없습니다. ‘성취기준 선택 → 붙여넣어 추가’로 교육과정 문서의 성취기준을 넣을 수 있습니다.</p>`
+        : "";
+    const itemOf = (code) => pool.find((p) => p.code === code);
+    const selHtml = selected
+      .map((x) => {
+        const it = itemOf(x.code);
+        const grades = STD.levelGrades(it);
+        const lvText = x.level ? STD.levelText(it, x.level) : "";
+        return `<div class="std-item" data-scode="${esc(x.code)}"><div class="std-main"><code>[${esc(x.code)}]</code> <span>${esc(x.text)}</span>
+          ${grades.length ? `<div class="lv-row"><label>관찰한 성취수준 <select data-std-level="${esc(x.code)}"><option value="">판단 보류</option>${grades.map((g) => `<option ${x.level === g ? "selected" : ""}>${g}</option>`).join("")}</select></label>
+          ${lvText ? `<span class="lv-text"><b>${esc(x.level)}</b> ${esc(lvText)}</span>` : `<span class="lv-text muted">수준을 고르면 해당 성취수준 설명을 참고로 보여 줍니다. 문구에는 그대로 넣지 않습니다.</span>`}</div>` : ""}
+          ${it && it.act ? `<div class="lv-row muted">탐구 활동: ${esc(it.act)}</div>` : ""}</div>
+          <button type="button" class="icon-btn" data-std-remove="${esc(x.code)}" aria-label="성취기준 ${esc(x.code)} 빼기">빼기</button></div>`;
+      })
+      .join("");
     return `
       <div class="field-row">
         <label class="field">과목<select data-opt="subject">${subjects.map((x) => `<option ${x === state.subject ? "selected" : ""}>${esc(x)}</option>`).join("")}<option value="__custom">직접 입력…</option></select></label>
@@ -363,12 +490,45 @@
       ${isArts ? `<div class="notice info">체육·예술(음악/미술) 과목은 성취수준의 특성, 실기능력, 교과적성, 학습활동 참여도 및 태도 등을 입력합니다. (기재요령 p.102)</div>` : ""}
       <div class="section-title"><h3>연계 성취기준 <span class="sub">${curr} 개정 · ${esc(state.subject)} · 내장 ${builtInCount}개${pool.length - builtInCount > 0 ? ` + 직접 추가 ${pool.length - builtInCount}개` : ""}</span></h3>
         <button type="button" class="btn small" data-action="open-std">성취기준 선택</button></div>
-      <div class="std-selected">${selected.length ? selected.map((x) => `<div class="std-item"><code>[${esc(x.code)}]</code><span>${esc(x.text)}</span><button type="button" class="icon-btn" data-std-remove="${esc(x.code)}" aria-label="성취기준 ${esc(x.code)} 빼기">빼기</button></div>`).join("") : `<p class="hint">선택한 성취기준이 없습니다. 성취기준은 문구에 그대로 넣지 않고, 관찰 내용이 어떤 성취수준을 보여 주는지 점검하는 기준으로 씁니다. (기재요령 p.88: 성취기준에 명시된 지식의 단순 서술 지양)</p>`}</div>`;
+      ${stdNote}
+      <div class="std-selected">${selected.length ? selHtml : `<p class="hint">선택한 성취기준이 없습니다. 성취기준과 성취수준은 문구에 그대로 넣지 않고, 관찰 내용이 어떤 성취수준을 보여 주는지 점검하는 기준으로 씁니다. (기재요령 p.88: 성취기준에 명시된 지식의 단순 서술 지양)</p>`}</div>`;
+  }
+
+  function planSection(r, area, grade) {
+    const items = planItems(area, grade);
+    const sel = new Set(r.extra.planSel || []);
+    const k = planKey(area, grade);
+    const head = `<div class="section-title"><h3>학교 창체 계획 활동 <span class="sub">${grade}학년 · ${items.length}개 · 학교교육계획에 따라 학교가 주최·주관한 활동 (p.76)</span></h3>
+      <button type="button" class="btn small" data-open-plan="1">계획 관리</button></div>`;
+    if (!state.plan.length) {
+      return head + `<p class="hint">학교의 「창의적 체험활동 연간 운영 계획」을 불러오면 날짜·시수와 함께 활동을 골라 관찰 기록과 정량 기록 문장을 만들 수 있습니다.</p>`;
+    }
+    if (!items.length) return head + `<p class="hint">불러온 계획에 ${grade}학년 ${esc(AREAS[area].label(grade))} 시수가 있는 활동이 없습니다.</p>`;
+    const lead = planLeadSentence([...sel], area, grade);
+    return (
+      head +
+      `<div class="plan-list">${items
+        .map((p) => {
+          const hv = planHours(p.h[k]);
+          return `<div class="plan-row"><label><input type="checkbox" data-plan-sel="${esc(p.id)}" ${sel.has(p.id) ? "checked" : ""}>
+            <span class="pd">${esc(p.date.replace(/^\d{4}\./, "").replace(/-\d{4}\./, "-"))}</span> <span class="pt">${esc(p.title)}</span>
+            <span class="ph">${hv.h}시간${hv.vol ? ` · 봉사 ${hv.vol}` : ""}</span></label>
+            <button type="button" class="link-btn" data-plan-add="${esc(p.id)}">관찰 추가</button></div>`;
+        })
+        .join("")}</div>
+      <div class="plan-tools">
+        <button type="button" class="btn small" data-action="plan-all">전체 선택</button>
+        <button type="button" class="btn small" data-action="plan-none">선택 해제</button>
+        <button type="button" class="btn small" data-action="plan-apply-class">이 반 전체에 같은 선택 적용</button>
+        <label class="check"><input type="checkbox" data-xfield="planLead" ${r.extra.planLead ? "checked" : ""}> 선택 활동을 정량 기록 문장으로 넣기 (p.77)</label>
+      </div>
+      ${lead && r.extra.planLead ? `<div class="notice info"><b>정량 기록 문장</b> ${esc(lead)}<br><span class="muted">활동 나열만으로는 부족합니다. 관찰 기록에 학생의 개별적 특성을 함께 적으세요. (p.77 ‘단순 나열식 입력 지양’)</span></div>` : ""}`
+    );
   }
 
   function autoContext(r, grade) {
     const roles = r.extra.roles || [];
-    return `
+    return planSection(r, "auto", grade) + `
       <div class="section-title"><h3>임원 활동 <span class="sub">‘전교·학년·학급’과 재임기간 병기 (기재요령 p.78)</span></h3>
         <button type="button" class="btn small" data-action="add-role">+ 임원 추가</button></div>
       <div class="roles">${roles.length ? roles.map((x, i) => `
@@ -392,8 +552,9 @@
       ${type === "self" ? `<div class="notice info">${esc(CLUB_TYPES.self.note)}</div>` : ""}`;
   }
 
-  function careerContext(r) {
+  function careerContext(r, grade) {
     return `
+      ${planSection(r, "career", grade)}
       <div class="field-row">
         <label class="field">희망분야 <span class="sub">(별도 칸 입력, 상급학교 미제공 · p.80)</span><input data-xfield="hope" value="${esc(r.extra.hope || "")}" placeholder="예: 생명과학 분야 / 진로탐색 중임."></label>
       </div>`;
@@ -520,6 +681,7 @@
         targetBytes: area === "club" && r.extra.clubType === "self" ? 90 : targetBytes(area),
         closing: state.closing,
         names: allNames(),
+        leads: leadsFor(r, area, gradeOf(s)),
       });
       if (res.empty) break;
       if (out.some((d) => d.text === res.text)) continue;
@@ -532,7 +694,7 @@
     const s = student();
     if (!s) return;
     const r = getRec(s.id);
-    if (!hasMemo(r) && !r.keywords.length && !(r.extra.roles || []).some((x) => x.title)) {
+    if (!hasMemo(r) && !r.keywords.length && !(r.extra.roles || []).some((x) => x.title) && !leadsFor(r, state.area, gradeOf(s)).length) {
       toast("관찰 기록이나 키워드를 먼저 입력하세요.");
       return;
     }
@@ -550,7 +712,7 @@
     visibleStudents().forEach((s) => {
       const r = state.rec[s.id] && state.rec[s.id][key];
       if (!r || r.final || (r.drafts && r.drafts.length)) return;
-      if (!hasMemo(r) && !r.keywords.length) return;
+      if (!hasMemo(r) && !r.keywords.length && !leadsFor(r, state.area, gradeOf(s)).length) return;
       r.drafts = draftsFor(s, r, state.area);
       if (r.drafts.length) n++;
     });
@@ -702,8 +864,12 @@
     const b = STD.builtIn(curr, state.subject);
     $("#std-dialog-title").textContent = `성취기준 선택 · ${curr} 개정 · ${state.subject}`;
     $("#std-source").innerHTML = b
-      ? `출처: ${esc(b.source)} (국가교육과정정보센터 원문, 공공누리 제2유형)`
-      : `<span class="notice warn" style="display:block">이 과목의 ${curr} 개정 성취기준은 아직 내장되지 않았습니다. 아래 ‘붙여넣어 추가’로 교육과정 원문의 성취기준을 넣을 수 있습니다.</span>`;
+      ? `출처: ${esc(b.source)} · 성취기준을 고른 뒤 작성 화면에서 관찰한 성취수준(A~E 또는 A~C)을 고르면 해당 설명을 참고로 볼 수 있습니다.`
+      : STD.hasFile(curr, state.subject)
+      ? `성취기준을 불러오는 중입니다…`
+      : curr === "2015"
+      ? `<span class="notice info" style="display:block">${state.year}학년도 ${esc(gradeOf(s))}학년은 2015 개정 교육과정입니다. 2015 개정 성취기준은 내장하지 않았으니 필요하면 아래 ‘붙여넣어 추가’를 쓰세요.</span>`
+      : `<span class="notice warn" style="display:block">이 과목의 ${curr} 개정 성취기준은 내장되지 않았습니다. 아래 ‘붙여넣어 추가’로 교육과정 원문의 성취기준을 넣을 수 있습니다.</span>`;
     let html = "";
     let lastDomain = null;
     pool.forEach((x) => {
@@ -714,6 +880,50 @@
       html += `<label class="std-row"><input type="checkbox" data-std="${esc(x.code)}" ${selected.has(x.code) ? "checked" : ""}><span><code>[${esc(x.code)}]</code> ${esc(x.text)}${x.src === "직접 추가" ? ` <span class="src">(직접 추가)</span>` : ""}</span></label>`;
     });
     $("#std-list").innerHTML = html || `<p class="empty">표시할 성취기준이 없습니다.</p>`;
+  }
+
+  /* ---------- 창체 연간 계획 대화상자 ---------- */
+  function openPlanDialog() {
+    $("#plan-paste").value = "";
+    $("#plan-result").textContent = "";
+    renderPlanDialog();
+    $("#plan-dialog").showModal();
+  }
+  function renderPlanDialog() {
+    const rows = state.plan.slice().sort((a, b) => String(a.sort).localeCompare(String(b.sort)));
+    const cell = (p, k) => esc((p.h || {})[k] || "");
+    $("#plan-count").textContent = `${rows.length}개 활동`;
+    $("#plan-table").innerHTML = rows.length
+      ? `<thead><tr><th>날짜</th><th>교시</th><th>활동명</th><th>담당</th><th>자율·자치<br>1</th><th>2</th><th>자율<br>3</th><th>진로<br>1</th><th>2</th><th>3</th><th>동아리<br>1·2·3</th><th>봉사<br>3</th><th></th></tr></thead><tbody>${rows
+          .map(
+            (p) => `<tr><td class="num">${esc(p.date)}</td><td>${esc(p.period)}</td><td>${esc(p.title)}</td><td>${esc(p.dept)}</td>
+            <td>${cell(p, "a1")}</td><td>${cell(p, "a2")}</td><td>${cell(p, "a3")}</td><td>${cell(p, "r1")}</td><td>${cell(p, "r2")}</td><td>${cell(p, "r3")}</td>
+            <td>${[cell(p, "c1"), cell(p, "c2"), cell(p, "c3")].filter(Boolean).join("·")}</td><td>${cell(p, "v3")}</td>
+            <td><button type="button" class="icon-btn" data-plan-del="${esc(p.id)}" aria-label="${esc(p.title)} 삭제">삭제</button></td></tr>`
+          )
+          .join("")}</tbody>`
+      : `<tbody><tr><td class="empty">불러온 계획이 없습니다.</td></tr></tbody>`;
+    // 학년별 시수 합계(검산용)
+    const sum = (k) => rows.reduce((n, p) => n + ((planHours((p.h || {})[k]) || {}).h || 0), 0);
+    $("#plan-sum").textContent = rows.length
+      ? `시수 합계 — 자율·자치 1학년 ${sum("a1")}, 2학년 ${sum("a2")}, 자율 3학년 ${sum("a3")} / 진로 1학년 ${sum("r1")}, 2학년 ${sum("r2")}, 3학년 ${sum("r3")} (학교 계획표의 합계와 같은지 확인하세요)`
+      : "";
+  }
+  function importPlanText(text) {
+    const rows = sheet.parseDelimited(text);
+    const items = parsePlanRows(rows);
+    if (!items.length) {
+      $("#plan-result").textContent = "활동을 찾지 못했습니다. 첫 줄에 ‘날짜, 교시, 활동명, 담당, 자율자치1 …’ 머리글이 있는지 확인하세요.";
+      return;
+    }
+    const replace = $("#plan-replace").checked;
+    if (replace && state.plan.length && !confirm(`기존 계획 ${state.plan.length}개를 지우고 ${items.length}개로 바꿉니다. 학생별로 고른 계획 활동 선택도 풀립니다. 계속할까요?`)) return;
+    state.plan = replace ? items : state.plan.concat(items);
+    save(true);
+    $("#plan-result").textContent = `${items.length}개 활동을 ${replace ? "불러왔습니다" : "추가했습니다"}.`;
+    $("#plan-paste").value = "";
+    renderPlanDialog();
+    renderWork();
   }
 
   /* ---------- 기재요령 요약 ---------- */
@@ -728,9 +938,10 @@
       .join("");
     $("#guide-body").innerHTML = `
       <p class="hint">출처: ${esc(rules.SOURCE)}. 쪽수는 원문 PDF 기준입니다. 이 요약은 작성 보조용이며 원문을 대신하지 않습니다.</p>
-      <h3>2026학년도 학년별 적용 교육과정</h3>
-      <ul><li>중학교 1·2학년: 2022 개정 교육과정 → 창체 영역은 <b>자율·자치활동, 동아리활동, 진로활동</b> (봉사활동은 각 영역과 연계)</li>
-      <li>중학교 3학년: 2015 개정 교육과정 → 창체 영역은 <b>자율활동, 동아리활동, 봉사활동, 진로활동</b> (p.73, 부칙 p.133)</li></ul>
+      <h3>학년도별 적용 교육과정 (부칙 p.133)</h3>
+      <ul><li>2026학년도 중학교 1·2학년: 2022 개정 교육과정 → 창체 영역은 <b>자율·자치활동, 동아리활동, 진로활동</b> (봉사활동은 각 영역과 연계)</li>
+      <li>2026학년도 중학교 3학년: 2015 개정 교육과정 → 창체 영역은 <b>자율활동, 동아리활동, 봉사활동, 진로활동</b> (p.73)</li>
+      <li>2027학년도: 중학교 1~3학년 모두 2022 개정 교육과정 (2027학년도 기재요령이 나오면 글자 수·금지 사항을 다시 확인해야 함)</li></ul>
       <h3>영역별 입력 가능 최대 글자 수 (p.162)</h3>
       <table><tr><th>영역</th><th>최대</th><th>입력</th><th>근거</th></tr>${limits}
       <tr><td>자유학기활동 (진로탐색·주제선택 등)</td><td>각 1,000자</td><td>담당 교사</td><td>p.108-110, p.162</td></tr></table>
@@ -867,6 +1078,38 @@
     }
     const cp = t.closest("[data-copy-text]");
     if (cp) return void copyText(cp.dataset.copyText);
+    if (t.closest("[data-open-plan]")) {
+      $("#data-menu").hidden = true;
+      return void openPlanDialog();
+    }
+    const padd = t.closest("[data-plan-add]");
+    if (padd) {
+      const p = state.plan.find((x) => x.id === padd.dataset.planAdd);
+      const r = getRec(state.selected);
+      if (!p || !r) return;
+      const blank = r.entries.find((e) => !(e.scene || e.action || e.change || "").trim());
+      const entry = blank || newEntry();
+      entry.date = p.date;
+      entry.scene = `${p.title}(${p.date})`;
+      if (!blank) r.entries.push(entry);
+      const sel = new Set(r.extra.planSel || []);
+      sel.add(p.id);
+      r.extra.planSel = [...sel];
+      save();
+      renderWork();
+      renderRoster();
+      const ta = $(`.entry[data-eid="${entry.id}"] [data-efield="action"]`);
+      if (ta) ta.focus();
+      toast("관찰 기록에 활동을 넣었습니다. 이 활동에서 본 학생의 구체적 행동을 적으세요.");
+      return;
+    }
+    const pdel = t.closest("[data-plan-del]");
+    if (pdel) {
+      state.plan = state.plan.filter((x) => x.id !== pdel.dataset.planDel);
+      save();
+      renderPlanDialog();
+      return;
+    }
 
     const act = t.closest("[data-action]");
     if (!act) return;
@@ -934,7 +1177,34 @@
         $("#std-parse-result").textContent = "";
         renderStdDialog();
         $("#std-dialog").showModal();
+        STD.ensure(rules.curriculumOf(gradeOf(s)), state.subject).then(() => renderStdDialog());
         break;
+      case "plan-all":
+        r.extra.planSel = planItems(state.area, gradeOf(s)).map((p) => p.id);
+        save();
+        renderWork();
+        renderRoster();
+        break;
+      case "plan-none":
+        r.extra.planSel = [];
+        save();
+        renderWork();
+        renderRoster();
+        break;
+      case "plan-apply-class": {
+        const mates = state.students.filter((x) => x.id !== s.id && x.grade === s.grade && x.cls === s.cls);
+        if (!mates.length) return toast("같은 반 학생이 없습니다.");
+        if (!confirm(`${s.grade}학년 ${s.cls}반 학생 ${mates.length}명의 ${AREAS[state.area].label(gradeOf(s))} 계획 활동 선택과 ‘정량 기록 문장’ 설정을 이 학생과 같게 바꿉니다. 관찰 기록은 바뀌지 않습니다. 계속할까요?`)) return;
+        mates.forEach((m) => {
+          const mr = getRec(m.id, recKey());
+          mr.extra.planSel = [...(r.extra.planSel || [])];
+          mr.extra.planLead = !!r.extra.planLead;
+        });
+        save();
+        renderRoster();
+        toast(`${mates.length}명에게 적용했습니다.`);
+        break;
+      }
       case "generate":
         generate();
         break;
@@ -952,7 +1222,14 @@
           names: allNames(),
           targetBytes: targetBytes(),
           versions: state.versions,
-          standards: state.area === "seteuk" ? r.extra.standards || [] : [],
+          standards:
+            state.area === "seteuk"
+              ? (r.extra.standards || []).map((x) => {
+                  const it = stdPool(curr, state.subject).find((p) => p.code === x.code);
+                  return { ...x, levelText: x.level ? STD.levelText(it, x.level) : "" };
+                })
+              : [],
+          planActs: ["auto", "career"].includes(state.area) ? planActLines(r.extra.planSel || [], state.area, gradeOf(s)) : [],
           extra: extra.length ? extra : null,
           entries: r.entries,
           keywords: r.keywords,
@@ -1042,7 +1319,7 @@
       if (t.dataset.efield !== "date") renderRoster();
       return;
     }
-    if (t.matches("[data-xfield]") && t.tagName !== "SELECT") {
+    if (t.matches("[data-xfield]") && t.tagName !== "SELECT" && t.type !== "checkbox") {
       getRec(s.id).extra[t.dataset.xfield] = t.value;
       save();
       return;
@@ -1116,11 +1393,45 @@
       save();
       return;
     }
-    if (t.matches("[data-xfield]") && t.tagName === "SELECT") {
-      getRec(s.id).extra[t.dataset.xfield] = t.value;
+    if (t.matches("[data-xfield]") && (t.tagName === "SELECT" || t.type === "checkbox")) {
+      getRec(s.id).extra[t.dataset.xfield] = t.type === "checkbox" ? t.checked : t.value;
       save();
       renderWork();
       renderOutput();
+      return;
+    }
+    if (t.matches("[data-plan-sel]")) {
+      const r = getRec(s.id);
+      const sel = new Set(r.extra.planSel || []);
+      if (t.checked) sel.add(t.dataset.planSel);
+      else sel.delete(t.dataset.planSel);
+      r.extra.planSel = [...sel];
+      save();
+      renderRoster();
+      if (r.extra.planLead) renderWork();
+      return;
+    }
+    if (t.matches("[data-std-level]")) {
+      const r = getRec(s.id);
+      const x = (r.extra.standards || []).find((y) => y.code === t.dataset.stdLevel);
+      if (x) x.level = t.value;
+      save();
+      renderWork();
+      return;
+    }
+    if (t.id === "year-select") {
+      state.year = Number(t.value);
+      rules.setYear(state.year);
+      save();
+      renderAll();
+      const g = rules.guideStatus();
+      toast(g.exact ? `${state.year}학년도 기준으로 바꿨습니다.` : `${state.year}학년도: 2022 개정 교육과정을 전 학년에 적용합니다. 기재요령은 ${g.used}학년도 기준입니다.`);
+      return;
+    }
+    if (t.id === "plan-file") {
+      const f = t.files[0];
+      t.value = "";
+      if (f) f.text().then((txt) => importPlanText(txt));
       return;
     }
     if (t.matches("[data-rfield]") && t.tagName === "SELECT") {
@@ -1239,6 +1550,17 @@
     if (fn) fn();
   });
   $("#prompt-copy").addEventListener("click", () => copyText($("#prompt-text").value));
+  $("#plan-import-btn").addEventListener("click", () => importPlanText($("#plan-paste").value));
+  $("#plan-file-btn").addEventListener("click", () => $("#plan-file").click());
+  $("#plan-export-btn").addEventListener("click", () => {
+    if (!state.plan.length) return toast("내보낼 계획이 없습니다.");
+    download(`srm2026-plan-${today()}.csv`, planToCsv(), "text/csv;charset=utf-8");
+  });
+  $("#plan-template-btn").addEventListener("click", () => {
+    const sample = [PLAN_HEAD.join(","), "2026.03.04.,6,학교폭력 및 성폭력 예방교육,학생,1,1,1,,,,,,,,", "2026.05.14.,3,진로활동,진로,,,,,,,,1,1,1,", "2026.04.08.,6,봉사활동 사전교육,환경,1(1),1(1),,,,,1,,,,( )는 봉사활동 시수"].join("\r\n");
+    download("srm2026-plan-template.csv", "﻿" + sample, "text/csv;charset=utf-8");
+  });
+  $("#year-select").value = String(state.year);
   $("#std-add-btn").addEventListener("click", () => {
     const s = student();
     const curr = rules.curriculumOf(gradeOf(s));

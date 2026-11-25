@@ -187,13 +187,15 @@
   function cleanEntry(entry, strip = (s) => s) {
     const conv = (t) => ko.splitSentences(t).map(strip).map(ko.toNominal).filter(Boolean);
     // ‘○○ 활동’처럼 명사로 끝난 장면은 ‘~에 참여함’으로 보충
-    const NOUN_SCENE = /(?:활동|수업|프로젝트|과제|캠페인|회의|행사|교육|체험|시간|상담|놀이|축제|발표회|현장체험학습|실험|실습|토론|토의|게임|견학|답사|탐방|공연|경기|수행평가|모둠\s*탐구)$/u;
+    // ‘정부반장선거(2026.03.11.)’처럼 끝에 날짜·시간 괄호가 붙은 경우도 같은 규칙 적용
+    const NOUN_SCENE = /(?:활동|수업|프로젝트|과제|캠페인|회의|행사|교육|체험|시간|상담|놀이|축제|발표회|현장체험학습|실험|실습|토론|토의|게임|견학|답사|탐방|공연|경기|수행평가|모둠\s*탐구|선거|안내|대화|멘토링|입학식|개학식|방학식|졸업식|수료식|세우기|만들기)$/u;
+    const isNounScene = (x) => NOUN_SCENE.test(x.replace(/\s*\([^()]*\)\s*$/u, ""));
     const sceneConv = (t) =>
       ko
         .splitSentences(t)
         .map(strip)
         .map((x) => x.replace(/[.。]+$/u, ""))
-        .map((x) => (NOUN_SCENE.test(x) ? x + "에 참여함" : x))
+        .map((x) => (isNounScene(x) ? x + "에 참여함" : x))
         .map(ko.toNominal)
         .filter(Boolean);
     return {
@@ -227,8 +229,9 @@
     const entries = (input.entries || []).map((e) => cleanEntry(e, strip)).filter((e) => e.scene.length || e.action.length || e.change.length);
     const keywords = (input.keywords || []).filter(Boolean);
     const roles = areaKey === "auto" ? roleSentences(input.roles) : [];
+    const leads = (input.leads || []).filter(Boolean); // 정량 기록 등 맨 앞에 둘 문장
 
-    if (!entries.length && !keywords.length && !roles.length) {
+    if (!entries.length && !keywords.length && !roles.length && !leads.length) {
       return { text: "", bytes: 0, omitted: 0, structure: "", empty: true };
     }
 
@@ -242,6 +245,7 @@
     const push = (text, priority) => text && items.push({ text, priority });
 
     roles.forEach((r) => push(r, 1));
+    leads.forEach((s) => push(s, 3));
 
     // 한 문구 안에서 같은 연결어를 반복하지 않음
     const used = new Set();
@@ -326,8 +330,16 @@
     lines.push("- 기재 금지: 교내·외 대회와 수상, 공인어학시험, 인증시험, 논문·소논문, 도서출간, 특허 등 지식재산권, 해외 활동, 부모의 사회·경제적 지위, 장학금, 특정 대학명·기관명·상호명·강사명, 자격증, 방과후학교 활동 (p.18-19, p.104)");
     if (ctx.standards && ctx.standards.length) {
       lines.push("");
-      lines.push("[관련 성취기준 — 성취기준 문장을 그대로 옮기지 말고, 관찰된 성취수준의 특성과 연결할 것]");
-      ctx.standards.forEach((s) => lines.push(`- [${s.code}] ${s.text}`));
+      lines.push("[관련 성취기준 — 성취기준·성취수준 문장을 그대로 옮기지 말고, 관찰 기록에 드러난 성취수준의 특성과 연결할 것]");
+      ctx.standards.forEach((s) => {
+        lines.push(`- [${s.code}] ${s.text}`);
+        if (s.level && s.levelText) lines.push(`  · 교사가 판단한 성취수준 ${s.level}: ${s.levelText}`);
+      });
+    }
+    if (ctx.planActs && ctx.planActs.length) {
+      lines.push("");
+      lines.push("[학교교육계획에 따라 학교가 주최·주관한 활동 중 이 학생과 관련된 것 — 날짜·시간 등 정량 정보는 사실대로만]");
+      ctx.planActs.forEach((a) => lines.push("- " + a));
     }
     if (ctx.extra) {
       lines.push("");

@@ -151,6 +151,29 @@ textarea { resize: vertical; line-height: 1.6; }
 .notice.info { background: var(--info-bg); color: #213a63; }
 .notice.ok { background: var(--ok-bg); color: #0f5a36; }
 
+/* ---------- 학년도·성취수준·창체 계획 ---------- */
+.year-pick { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 700; color: var(--text-2); }
+.year-pick select { min-height: 32px; border: 1px solid var(--line-strong); border-radius: 8px; padding: 3px 6px; background: #fff; font-weight: 600; }
+.muted { color: var(--muted); font-size: 0.8rem; }
+.std-main { flex: 1; min-width: 0; }
+.lv-row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; margin-top: 6px; font-size: 0.82rem; }
+.lv-row label { font-weight: 700; color: var(--text-2); white-space: nowrap; }
+.lv-row select { border: 1px solid var(--line-strong); border-radius: 6px; padding: 2px 4px; margin-left: 4px; background: #fff; }
+.lv-text { flex: 1; min-width: 220px; background: #fff; border: 1px dashed var(--line-strong); border-radius: 7px; padding: 4px 8px; color: var(--text-2); }
+.lv-text b { color: var(--primary); margin-right: 4px; }
+.plan-list { max-height: 260px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+.plan-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-top: 1px solid var(--line); font-size: 0.86rem; }
+.plan-row:first-child { border-top: 0; }
+.plan-row label { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; cursor: pointer; }
+.plan-row .pd { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 0.8rem; }
+.plan-row .pt { flex: 1; min-width: 0; }
+.plan-row .ph { color: var(--primary); font-size: 0.78rem; white-space: nowrap; }
+.plan-tools { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-top: 8px; }
+.plan-tools .check { margin: 0; }
+.plan-table-wrap { max-height: 46vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; }
+#plan-table td, #plan-table th { font-size: 0.8rem; padding: 5px 6px; text-align: center; }
+#plan-table td:nth-child(3) { text-align: left; min-width: 180px; }
+
 /* ---------- 문구 ---------- */
 .output { position: sticky; top: 74px; max-height: calc(100vh - 90px); overflow-y: auto; }
 .draft { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; background: #fff; }

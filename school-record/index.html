@@ -31,6 +31,7 @@
       <div class="menu-list" id="data-menu" hidden>
         <button type="button" id="backup-btn">백업 파일 저장(.json)</button>
         <button type="button" id="restore-btn">백업 파일 불러오기</button>
+        <button type="button" data-open-plan="1">학교 창체 연간 계획 관리</button>
         <button type="button" id="demo-btn">가상 예시 불러오기</button>
         <hr>
         <button type="button" id="wipe-btn" class="danger">이 기기의 자료 모두 지우기</button>
@@ -38,6 +39,12 @@
     </div>
     <button type="button" class="btn ghost" data-open="help-dialog">사용 안내</button>
   </nav>
+  <label class="year-pick">학년도
+    <select id="year-select" aria-label="학년도">
+      <option value="2026">2026</option>
+      <option value="2027">2027 (3학년 2022 개정)</option>
+    </select>
+  </label>
   <div class="save-state" id="save-state" role="status" aria-live="polite">이 기기에만 저장됨</div>
 </header>
 
@@ -139,6 +146,32 @@
   </div>
 </dialog>
 
+<!-- 학교 창체 연간 계획 -->
+<dialog id="plan-dialog" class="dialog wide" aria-labelledby="plan-title">
+  <div class="dialog-body">
+    <h2 id="plan-title">학교 창의적 체험활동 연간 운영 계획</h2>
+    <p class="hint">학교교육계획에 따라 학교가 주최·주관한 활동만 특기사항에 입력할 수 있습니다(기재요령 p.76). 계획을 불러오면 자율·자치활동과 진로활동 화면에서 학생 학년에 맞는 활동을 날짜·시수와 함께 고를 수 있습니다. 계획은 이 기기에만 저장되며 백업 파일에 함께 들어갑니다.</p>
+    <details class="std-add" open>
+      <summary>CSV 불러오기 · 붙여넣기</summary>
+      <p class="hint">열 순서: <code>날짜, 교시, 활동명, 담당, 자율자치1, 자율자치2, 자율3, 동아리1, 동아리2, 동아리3, 봉사3, 진로1, 진로2, 진로3, 비고</code> — 시수 칸에 <code>1</code> 또는 봉사 시수를 괄호로 <code>1(1)</code>. 날짜는 <code>2026.03.04.</code>, <code>3/4</code>, 범위 <code>2026.06.09.-2026.06.11.</code> 모두 됩니다(1·2월은 다음 해로 계산).</p>
+      <label class="sr-only" for="plan-paste">계획 붙여넣기</label>
+      <textarea id="plan-paste" rows="5" placeholder="날짜,교시,활동명,담당,자율자치1,자율자치2,자율3,동아리1,동아리2,동아리3,봉사3,진로1,진로2,진로3,비고"></textarea>
+      <label class="check"><input type="checkbox" id="plan-replace" checked> 기존 계획을 지우고 새로 불러오기 (체크하지 않으면 추가)</label>
+      <div class="row-end"><span id="plan-result" class="hint"></span>
+        <button type="button" class="btn small" id="plan-template-btn">양식 내려받기</button>
+        <button type="button" class="btn small" id="plan-file-btn">CSV 파일 선택</button>
+        <button type="button" class="btn small primary" id="plan-import-btn">붙여넣은 내용 불러오기</button></div>
+      <input type="file" id="plan-file" accept=".csv,.txt" hidden>
+    </details>
+    <div class="panel-head" style="margin-top:12px"><h3 id="plan-count">0개 활동</h3><button type="button" class="btn small" id="plan-export-btn">CSV로 내보내기</button></div>
+    <p class="hint" id="plan-sum"></p>
+    <div class="table-wrap plan-table-wrap"><table class="grid" id="plan-table"></table></div>
+    <div class="dialog-actions">
+      <button type="button" class="btn primary" data-close>닫기</button>
+    </div>
+  </div>
+</dialog>
+
 <!-- AI용 프롬프트 -->
 <dialog id="prompt-dialog" class="dialog wide" aria-labelledby="prompt-title">
   <div class="dialog-body">
@@ -190,6 +223,9 @@
     <ol class="help-steps">
       <li><b>명렬표</b> — 엑셀·나이스에서 학년·반·번호·이름을 복사해 <em>표 붙여넣기</em> 하거나 .xlsx·.csv 파일을 고릅니다.</li>
       <li><b>영역 선택</b> — 교과 세특, 자율·자치활동(3학년은 자율활동), 동아리활동, 진로활동, 행동특성 및 종합의견 가운데 고릅니다. 학년에 따라 명칭과 교육과정(2022·2015 개정)이 자동으로 바뀝니다.</li>
+      <li><b>학년도</b> — 오른쪽 위에서 2026·2027학년도를 고릅니다. 2026학년도는 중1·2가 2022 개정, 중3이 2015 개정이고, 2027학년도부터는 3학년도 2022 개정(자율·자치활동, 2022 개정 성취기준)으로 바뀝니다.</li>
+      <li><b>성취기준·성취수준</b> — 교과 세특에서 과목을 고르고 <em>성취기준 선택</em>을 누르면 2022 개정 성취기준(국어·사회·역사·도덕·수학·과학·영어·체육·음악·미술)이 나옵니다. 고른 성취기준마다 관찰한 성취수준(A~E 또는 A~C)을 고르면 원문 설명을 참고로 보여 줍니다. 이 설명은 문구에 그대로 넣지 않습니다.</li>
+      <li><b>학교 창체 계획</b> — <em>자료 관리 → 학교 창체 연간 계획 관리</em>에서 CSV를 불러오면, 자율·자치활동과 진로활동 화면에 학생 학년에 해당하는 계획 활동이 날짜·시수와 함께 나옵니다. 활동을 고르면 정량 기록 문장(예: 정부반장선거(2026.03.11.)에 참여함.)을 만들 수 있고, <em>관찰 추가</em>를 누르면 그 활동이 관찰 기록 장면으로 들어갑니다. <em>이 반 전체에 같은 선택 적용</em>으로 반 학생 모두에게 같은 활동 선택을 줄 수 있습니다.</li>
       <li><b>관찰 기록</b> — 수업·활동에서 직접 본 장면, 학생의 구체적 행동, 변화를 적습니다. 여러 번 나누어 누가기록할 수 있습니다.</li>
       <li><b>특장점 키워드</b> — 관찰로 확인한 특장점만 고릅니다. 키워드는 평가 문장으로 바뀝니다.</li>
       <li><b>문구 만들기</b> — 앱 안에서 관찰 기록을 문장으로 조합합니다(외부 전송 없음). 기록에 없는 내용은 만들지 않습니다.</li>

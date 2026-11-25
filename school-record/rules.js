@@ -8,10 +8,33 @@
 
   const SRM = (global.SRM = global.SRM || {});
 
-  /* ---------- 학년별 교육과정 적용 (기재요령 부칙 p.133) ---------- */
-  // 2026학년도: 중1·중2 = 2022 개정, 중3 = 2015 개정
-  function curriculumOf(grade) {
-    return String(grade) === "3" ? "2015" : "2022";
+  /* ---------- 학년도·학년별 교육과정 적용 (기재요령 부칙 p.133) ---------- */
+  // 2022 개정 교육과정 순차 적용: 2025 중1 → 2026 중1·2 → 2027 중1·2·3
+  const CURRICULUM_BY_YEAR = {
+    2025: { 1: "2022", 2: "2015", 3: "2015" },
+    2026: { 1: "2022", 2: "2022", 3: "2015" },
+    2027: { 1: "2022", 2: "2022", 3: "2022" },
+  };
+  // 기재요령(글자 수·금지 사항 등)을 반영한 학년도. 그 밖의 학년도는 가장 가까운 기재요령을 임시 적용
+  const GUIDE_YEARS = [2026];
+  let currentYear = 2026;
+
+  function setYear(year) {
+    const y = Number(year);
+    if (Number.isFinite(y)) currentYear = y;
+  }
+  function getYear() {
+    return currentYear;
+  }
+  function curriculumOf(grade, year = currentYear) {
+    const g = String(grade || "1");
+    const table = CURRICULUM_BY_YEAR[year] || (year > 2027 ? CURRICULUM_BY_YEAR[2027] : CURRICULUM_BY_YEAR[2025]);
+    return table[g] || "2022";
+  }
+  function guideStatus(year = currentYear) {
+    const exact = GUIDE_YEARS.includes(Number(year));
+    const used = exact ? Number(year) : GUIDE_YEARS.reduce((a, b) => (Math.abs(b - year) < Math.abs(a - year) ? b : a));
+    return { exact, used };
   }
 
   /* ---------- 영역 정의 및 입력 가능 최대 글자 수 (p.162) ---------- */
@@ -37,7 +60,8 @@
     auto: {
       key: "auto",
       short: "자율·자치",
-      label: (grade) => (String(grade) === "3" ? "자율활동" : "자율·자치활동"),
+      // 2015 개정 적용 학년은 ‘자율활동’, 2022 개정 적용 학년은 ‘자율·자치활동’ (p.73)
+      label: (grade) => (curriculumOf(grade) === "2015" ? "자율활동" : "자율·자치활동"),
       maxChars: 500,
       writer: "학급담임교사",
       basis: "p.73-78, p.162",
@@ -359,6 +383,10 @@
 
   SRM.rules = {
     curriculumOf,
+    setYear,
+    getYear,
+    guideStatus,
+    CURRICULUM_BY_YEAR,
     AREAS,
     AREA_ORDER,
     countBytes,
